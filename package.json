@@ -1,0 +1,32 @@
+{
+  "name": "caretrail",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CARETRAIL — offline-first community healthcare navigation, referral and follow-up platform",
+  "workspaces": [
+    "packages/shared-types",
+    "packages/validation",
+    "packages/api-client",
+    "apps/api",
+    "apps/web",
+    "apps/mobile"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build:packages": "npm run build -w @caretrail/shared-types && npm run build -w @caretrail/validation && npm run build -w @caretrail/api-client",
+    "build": "npm run build:packages && npm run build -w @caretrail/api && npm run build -w @caretrail/web",
+    "dev:api": "npm run build:packages && npm run dev -w @caretrail/api",
+    "dev:web": "npm run build:packages && npm run dev -w @caretrail/web",
+    "dev:mobile": "npm run build:packages && npm run start -w @caretrail/mobile",
+    "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
+    "test": "npm run build:packages && npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "typescript": "~6.0.3"
+  }
+}
