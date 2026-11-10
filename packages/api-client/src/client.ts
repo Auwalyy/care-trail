@@ -53,6 +53,8 @@ export interface RequestOptions {
   /** Skip the auth header (login, refresh, public endpoints). */
   anonymous?: boolean;
   timeoutMs?: number;
+  /** Non-2xx statuses whose body should be returned instead of thrown (e.g. 503 from readiness). */
+  acceptStatuses?: number[];
 }
 
 export interface ApiClientConfig {
@@ -140,7 +142,7 @@ export class ApiClient {
       });
     }
 
-    if (!response.ok) {
+    if (!response.ok && !options.acceptStatuses?.includes(response.status)) {
       const body = payload as Partial<ApiErrorBody>;
       throw new ApiError({
         status: response.status,
@@ -180,7 +182,8 @@ export class ApiClient {
     return this.get<HealthStatus>('/health', { anonymous: true });
   }
 
+  /** Resolves with the HealthStatus body for both 200 (ready) and 503 (dependency down). */
   readiness(): Promise<HealthStatus> {
-    return this.get<HealthStatus>('/health/ready', { anonymous: true });
+    return this.get<HealthStatus>('/health/ready', { anonymous: true, acceptStatuses: [503] });
   }
 }

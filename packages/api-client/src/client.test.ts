@@ -68,6 +68,12 @@ describe('ApiClient', () => {
     expect(calls).toBe(2);
   });
 
+  it('returns the readiness body on 503 instead of throwing', async () => {
+    const body = { status: 'down', service: 'caretrail-api', version: '0.1.0', uptimeSeconds: 5, timestamp: 't', checks: { mongodb: { status: 'down' } } };
+    const client = new ApiClient({ baseUrl: 'http://api.test', fetchImpl: (async () => jsonResponse(503, body)) as unknown as typeof fetch });
+    expect(await client.readiness()).toEqual(body);
+  });
+
   it('does not loop when refresh fails', async () => {
     const fetchImpl = (async () =>
       jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: 'no' }, meta: { requestId: 'a' } })) as unknown as typeof fetch;
