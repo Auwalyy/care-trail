@@ -27,8 +27,16 @@ Error codes: `VALIDATION_ERROR` 400, `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NO
 **Concurrency**: mutable resources return `version`; `PATCH` bodies must include `version`.
 Mismatch → `409 VERSION_CONFLICT` with the current server document in `error.details`.
 
-**Auth**: `Authorization: Bearer <accessToken>`. Web uses an httpOnly, `SameSite=Strict`,
-path-scoped refresh cookie; mobile sends the refresh token in the body and stores it in SecureStore.
+**Auth**: `Authorization: Bearer <accessToken>` (HS256 JWT, 15 min, claims `sub`, `role`, `sv`
+session version, `cl` client). Every request re-loads the user, so deactivation or a
+session-version bump takes effect immediately. Web uses an httpOnly, `SameSite=Strict` refresh
+cookie (`ct_rt`, path `/api/v1/auth`, `Secure` in production); mobile sends the refresh token in
+the body and stores it in SecureStore. Refresh tokens rotate on every use; a rotated token
+re-presented within 30 s is treated as a lost-response retry, after that as theft (the whole token
+family is revoked and audited). Sign-in locks for 15 min after 5 failures (configurable).
+
+Because the refresh cookie is `SameSite=Strict`, **the web app and API must share a registrable
+domain in production** (e.g. `app.caretrail.example` and `api.caretrail.example`).
 
 ## Endpoints and permissions
 
@@ -40,10 +48,15 @@ path-scoped refresh cookie; mobile sends the refresh token in the body and store
 | POST /auth/forgot-password | public (rate-limited) | always 202 (no account enumeration) |
 | POST /auth/reset-password | reset token | revokes all sessions |
 | GET /auth/me | authenticated | |
-| CRUD /users | `user:manage` | scoped: programme admins manage own org; facility admins manage own facility workers |
-| CRUD /organisations | `organisation:manage` | platform admin |
-| CRUD /communities | `community:manage` | |
-| CRUD /facilities | `facility:manage` / `facility:read` | |
+| POST /auth/change-password | authenticated | returns a fresh session for this device; all other sessions revoked |
+| GET /users, /users/:id | `user:read` | ✅ scoped: platform → all; programme admin → own org; facility admin → own facility |
+| POST /users | `user:manage` | ✅ role matrix `MANAGEABLE_ROLES`; returns user + one-time activation link; no admin-set passwords |
+| PATCH /users/:id | `user:manage` | ✅ name, phone, language, facility/community reassignment; `version` required |
+| POST /users/:id/status | `user:manage` | ✅ `{status: active\|inactive, version}`; deactivation revokes all sessions immediately |
+| POST /users/:id/password-link | `user:manage` | ✅ new activation link (pending users) or 24 h reset link (active users) |
+| GET /organisations | `organisation:read` | ✅ read-only list (Phase 2); create/update in Phase 3 (`organisation:manage`) |
+| GET /communities | `community:read` | ✅ read-only list, organisation-scoped; create/update in Phase 3 |
+| GET /facilities | `facility:read` | ✅ read-only list, organisation-scoped; create/update in Phase 3 |
 | POST/GET/PATCH /chws | `chw:manage` / `chw:read` | |
 | POST /patients | `patient:create` | duplicate check → `409 POSSIBLE_DUPLICATE` with candidates unless `confirmNotDuplicate=true` |
 | GET /patients, /patients/:id | `patient:read` | scope-filtered; profile reads audited |

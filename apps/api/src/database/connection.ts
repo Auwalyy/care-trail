@@ -64,13 +64,20 @@ export async function connectDatabase(options: ConnectOptions): Promise<typeof m
   }
 
   logger.info({ target: describeMongoUri(uri) }, 'Connected to MongoDB');
-  mongoose.connection.on('disconnected', () => logger.warn('MongoDB disconnected'));
+  closing = false;
+  mongoose.connection.on('disconnected', () => {
+    if (!closing) logger.warn('MongoDB disconnected');
+  });
   mongoose.connection.on('reconnected', () => logger.info('MongoDB reconnected'));
   mongoose.connection.on('error', (err) => logger.error({ err }, 'MongoDB connection error'));
   return mongoose;
 }
 
+/** True while we are deliberately closing, so the disconnect is not reported as a fault. */
+let closing = false;
+
 export async function disconnectDatabase(): Promise<void> {
+  closing = true;
   await mongoose.disconnect();
 }
 

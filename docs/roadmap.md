@@ -6,7 +6,7 @@ Status legend: ✅ done and tested · 🟡 in progress · ⬜ not started
 |---|---|---|
 | 0 | Architecture, data model, API contracts, navigation, risks | ✅ (docs/) |
 | 1 | Foundation: monorepo, TS config, API skeleton, MongoDB connection, logging, error handling, env config, shared packages, Next.js + Expo setup | ✅ code and tests. Real-device run and Docker run still pending (see README). |
-| 2 | Auth & access control: users, Argon2id, JWT + rotating refresh, RBAC, scopes, protected routes (API + web) | ⬜ |
+| 2 | Auth & access control: users, Argon2id, JWT + rotating refresh, RBAC, scopes, protected routes (API + web) | ✅ API tests and live end-to-end run. The web UI was not clicked through in a browser (see README). |
 | 3 | Core admin: organisations, communities, facilities, CHWs, settings, dashboard shell | ⬜ |
 | 4 | Patients: registration, households, consent, profiles, search, duplicate detection | ⬜ |
 | 5 | Referrals: creation, codes, receipts, verification, transitions, history | ⬜ |
@@ -18,21 +18,22 @@ Status legend: ✅ done and tested · 🟡 in progress · ⬜ not started
 | 11 | QA: security, performance, offline, E2E | ⬜ |
 | 12 | Deployment: Docker, backups, monitoring, EAS Android build | ⬜ |
 
-## Phase 1 checklist
+## Status details
 
-See the README "Phase 1 status" section for what has been verified.
+See the README "Phase status" section for what has been verified and how.
 
-## Phase 2 plan (next)
+## Phase 3 plan (next): core administration
 
-1. `users` and `refresh_tokens` models. Argon2id hashing (the `argon2` package needs a
-   native build, so verify it installs in the Alpine image, with `@node-rs/argon2` as fallback).
-2. `POST /auth/login|refresh|logout|forgot-password|reset-password`, `GET /auth/me`. Rotating
-   refresh tokens with family reuse detection, and revocation on deactivation or reset.
-3. `authenticate` and `authorize(permission)` middleware. `buildAccessScope(user)` and
-   scope-required repository signatures.
-4. Audit log module, which login and logout write to.
-5. Seed script for the first platform admin (interactive, no default password).
-6. Web: login, forgot/reset pages, in-memory access token with httpOnly refresh cookie, protected
-   `(dashboard)` layout, role-based redirects.
-7. Tests: login and lockout, refresh rotation and reuse, permission denials per role, deactivated
-   user, password reset revoking sessions.
+1. **Organisations** (platform admin): create, update, activate/deactivate, audit.
+2. **Communities and facilities**: create, update and soft-delete within an organisation, with
+   unique codes. Deactivating one with active users or patients needs an explicit reassignment.
+3. **CHW profiles** (`chws` collection): programme areas, `canIssueReferrals` flag, supervisor,
+   device and sync status fields (populated in Phase 8), plus an assigned-patients count.
+4. **Settings**: per-organisation pilot targets (communities, facilities, CHWs, patients,
+   duration, start date), referral expected-arrival default and offline grace period, editable
+   without code changes.
+5. **Audit log viewer**: `GET /audit-logs` (`audit:read`), scoped, with filters.
+6. **Web**: Organisations, Facilities, Communities, CHWs, Settings and Audit pages. The dashboard
+   shows real counts of facilities, communities and CHWs against pilot targets.
+7. **Tests**: CRUD validation, uniqueness, scope isolation for each module, soft deletion,
+   settings permissions.

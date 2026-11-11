@@ -45,7 +45,7 @@ export class PasswordLinkService {
     return PasswordTokenModel.findOneAndUpdate(
       { tokenHash: sha256(token), usedAt: null, expiresAt: { $gt: now } },
       { $set: { usedAt: now } },
-      { new: true, session },
+      { returnDocument: 'after', session },
     ).lean<PasswordTokenDoc>();
   }
 }

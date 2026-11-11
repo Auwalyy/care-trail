@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { cn } from '@/lib/utils';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -13,8 +14,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col font-sans">
+    // `dir` is set per language once right-to-left languages are added (components use logical CSS).
+    <html lang="en" dir="ltr" className={cn('h-full antialiased', inter.variable)}>
+      <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
       </body>
     </html>

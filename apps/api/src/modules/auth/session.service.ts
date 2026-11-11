@@ -77,7 +77,7 @@ export class SessionService {
       const claimed = await RefreshTokenModel.findOneAndUpdate(
         { _id: current._id, revokedAt: null },
         { $set: { revokedAt: now, revokedReason: 'rotated' } },
-        { new: true },
+        { returnDocument: 'after' },
       ).lean<RefreshTokenDoc>();
       if (claimed) {
         const next = await this.issue(

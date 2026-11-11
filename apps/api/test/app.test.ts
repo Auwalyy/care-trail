@@ -81,6 +81,8 @@ describe('HTTP foundation', () => {
     expect(res.status).toBe(200);
     expect(res.body.openapi).toBe('3.1.0');
     expect(res.body.paths['/health']).toBeDefined();
+    expect(res.body.paths['/auth/login'].post.requestBody.content['application/json'].schema.properties.email).toBeDefined();
+    expect(res.body.paths['/users/{id}/status']).toBeDefined();
   });
 
   it('can disable API docs', async () => {

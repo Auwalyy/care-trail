@@ -10,6 +10,10 @@ import { createErrorHandler, notFoundHandler } from './middleware/error-handler.
 import { apiRateLimit } from './middleware/rate-limit.js';
 import { requestId } from './middleware/request-id.js';
 import { createAuthenticate } from './middleware/authenticate.js';
+import { directoryListRoutes } from './modules/access/directory.routes.js';
+import { CommunityRepository } from './modules/communities/community.repository.js';
+import { FacilityRepository } from './modules/facilities/facility.repository.js';
+import { OrganisationRepository } from './modules/organisations/organisation.repository.js';
 import { AuditService } from './modules/audit/audit.service.js';
 import { AccessTokenService } from './modules/auth/access-token.service.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
@@ -111,6 +115,9 @@ export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now
 
   api.use('/auth', authRoutes({ service: authService, authenticate, env, rateLimit: env.NODE_ENV !== 'test' }));
   api.use('/users', userRoutes({ service: userService, authenticate }));
+  api.use('/organisations', directoryListRoutes({ repo: new OrganisationRepository(), permission: 'organisation:read', authenticate }));
+  api.use('/facilities', directoryListRoutes({ repo: new FacilityRepository(), permission: 'facility:read', authenticate }));
+  api.use('/communities', directoryListRoutes({ repo: new CommunityRepository(), permission: 'community:read', authenticate }));
   // Further feature modules (organisations, patients, referrals, …) are mounted here.
 
   app.use('/api/v1', api);

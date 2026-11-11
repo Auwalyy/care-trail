@@ -19,6 +19,11 @@
 | A13 | CHW web access | CHWs use mobile. The web only exposes their profile. |
 | A14 | Pilot figures (2/2/10/200/12 weeks) | Stored in `settings` as *targets*. Dashboards show actual vs. target. These are not confirmed deployments. |
 | A15 | Patient sign-in | None in the MVP, as specified. |
+| A16 | Delivering activation and reset links without an email/SMS provider | Admins create users and get a **one-time activation link** to hand over in person or over a trusted channel. Admins never set passwords. Self-service "forgot password" issues a link but doesn't deliver it until a provider is configured, and it is recorded as `delivered: false`. Only in development is the link written to the log. |
+| A17 | Refresh-token reuse on flaky networks | A rotated token used again within 30 s counts as a retry after a lost response: the earlier successor is revoked and a new one issued. After 30 s it counts as reuse, so the family is revoked and audited. The web client serialises refreshes across tabs with the Web Locks API. |
+| A18 | Who creates whom | `MANAGEABLE_ROLES`: platform admin → programme/facility/CHW. Programme admin → facility admin, facility worker and CHW, all in their own org. Facility admin → facility workers in their own facility. Platform admins only come from the `create-admin` script. Nobody can edit their own account through `/users`. |
+| A19 | Reference data before Phase 3 | Read-only scoped `GET /organisations`, `/facilities` and `/communities` exist now, so users can be linked to them. `npm run seed:dev` creates clearly labelled DEMO data for local use and refuses to run in production. |
+| A20 | Web UI translation and the top-bar search/notification centre | Deferred. The Hausa/English i18n layer is built with the mobile app in Phase 7 and then applied to the web. Global search and notifications come with Phases 4 and 9, so no non-functional controls are shown before then. |
 
 ## Critical technical risks
 

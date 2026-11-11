@@ -75,7 +75,7 @@ export class AuthService {
       const updated = await UserModel.findOneAndUpdate(
         { _id: user._id },
         { $inc: { failedLoginCount: 1 } },
-        { new: true },
+        { returnDocument: 'after' },
       ).lean<UserDoc>();
       if (updated && updated.failedLoginCount >= env.LOGIN_MAX_FAILED_ATTEMPTS) {
         await UserModel.updateOne(
@@ -90,7 +90,7 @@ export class AuthService {
     const fresh = await UserModel.findOneAndUpdate(
       { _id: user._id },
       { $set: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: now } },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean<UserDoc>();
     const session = await this.issueSession(fresh!, input.client, input.deviceId ?? null, now);
     await audit.record(
@@ -222,7 +222,7 @@ export class AuthService {
     const updated = await UserModel.findOneAndUpdate(
       { _id: user._id },
       { $set: { passwordHash, passwordChangedAt: now }, $inc: { sessionVersion: 1 } },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean<UserDoc>();
     await this.deps.sessions.revokeAllForUser(user._id, 'session_revoked', now);
     await this.deps.audit.record({ action: 'auth.password_changed', auth, entityType: 'user', entityId: auth.userId }, ctx);

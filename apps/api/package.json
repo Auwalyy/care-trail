@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "create-admin": "tsx src/scripts/create-platform-admin.ts",
+    "seed:dev": "tsx src/scripts/seed-dev.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

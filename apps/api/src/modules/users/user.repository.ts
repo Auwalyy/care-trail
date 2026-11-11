@@ -63,7 +63,7 @@ export class UserRepository {
     return UserModel.findOneAndUpdate(
       { _id: id, version },
       { ...update, $inc: { ...(update.$inc ?? {}), version: 1 } },
-      { new: true, session: session ?? null },
+      { returnDocument: 'after', session: session ?? null },
     ).lean<UserDoc>();
   }
 }

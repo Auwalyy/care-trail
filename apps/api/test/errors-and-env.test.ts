@@ -39,36 +39,41 @@ describe('normaliseError', () => {
 });
 
 describe('loadEnv', () => {
-  const base = { MONGODB_URI: 'mongodb://localhost/x' };
+  const base = { MONGODB_URI: 'mongodb://localhost/x', JWT_ACCESS_SECRET: 's'.repeat(40) };
 
   it('applies defaults', () => {
     const env = loadEnv(base);
     expect(env.PORT).toBe(4000);
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:3000']);
     expect(env.API_DOCS_ENABLED).toBe(true);
+    expect(env.JWT_ACCESS_TTL_SECONDS).toBe(900);
+    expect(env.LOGIN_MAX_FAILED_ATTEMPTS).toBe(5);
   });
 
-  it('requires a MongoDB URI', () => {
-    expect(() => loadEnv({})).toThrow(EnvValidationError);
+  it('requires a MongoDB URI and a strong JWT secret in every environment', () => {
+    expect(() => loadEnv({ JWT_ACCESS_SECRET: 's'.repeat(40) })).toThrow(EnvValidationError);
+    expect(() => loadEnv({ MONGODB_URI: 'mongodb://localhost/x' })).toThrow(/JWT_ACCESS_SECRET/);
+    expect(() => loadEnv({ ...base, JWT_ACCESS_SECRET: 'too-short' })).toThrow(/at least 32/);
   });
 
-  it('requires a strong JWT secret and no wildcard CORS in production', () => {
+  it('requires https links and no wildcard CORS in production', () => {
     try {
-      loadEnv({ ...base, NODE_ENV: 'production', CORS_ORIGINS: '*' });
+      loadEnv({ ...base, NODE_ENV: 'production', CORS_ORIGINS: '*', WEB_APP_URL: 'http://app.example' });
       expect.unreachable();
     } catch (err) {
       const issues = (err as EnvValidationError).issues.join('\n');
-      expect(issues).toContain('JWT_ACCESS_SECRET');
+      expect(issues).toContain('WEB_APP_URL');
       expect(issues).toContain('CORS_ORIGINS');
     }
     expect(() =>
-      loadEnv({ ...base, NODE_ENV: 'production', JWT_ACCESS_SECRET: 'x'.repeat(40), CORS_ORIGINS: 'https://app.example' }),
+      loadEnv({ ...base, NODE_ENV: 'production', CORS_ORIGINS: 'https://app.example', WEB_APP_URL: 'https://app.example' }),
     ).not.toThrow();
   });
 
   it('never includes secret values in error messages', () => {
     try {
-      loadEnv({ ...base, NODE_ENV: 'production', JWT_ACCESS_SECRET: 'short-secret-value' });
+      loadEnv({ ...base, JWT_ACCESS_SECRET: 'short-secret-value' });
+      expect.unreachable();
     } catch (err) {
       expect((err as Error).message).not.toContain('short-secret-value');
     }

@@ -3,6 +3,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { ApiError } from '@caretrail/api-client';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { SessionBootstrap } from '@/features/auth/session-bootstrap';
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -18,5 +21,13 @@ export function Providers({ children }: { children: ReactNode }) {
         },
       }),
   );
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      <TooltipProvider>
+        <SessionBootstrap />
+        {children}
+        <Toaster richColors position="top-right" />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
 }
