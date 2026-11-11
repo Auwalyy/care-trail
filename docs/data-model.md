@@ -68,9 +68,18 @@ TTL index on `expiresAt`; `{tokenHash:1}` unique.
 `organisationId, name, code (unique per org), type (PHC|general_hospital|other), lga, ward?,
 address, phone?, status, servicesOffered[] (configured labels)`.
 
-### chws
-`userId (unique), organisationId, communityIds[], programmeAreas[], canIssueReferrals: bool,
-supervisorUserId?, deviceInfo{lastSyncAt, appVersion, pendingOps}, status`.
+### chws (CHW programme profiles) ✅ Phase 3
+`userId (unique), organisationId, programmeAreas[], canIssueReferrals: bool, supervisorUserId?,
+device{lastSyncAt, appVersion, pendingOperations}, version`.
+Identity, account status and **community assignment stay on the user** (`users.communityIds`),
+because they drive authentication and data scope. A profile is created in the same transaction
+as every `chw` user. Accounts that predate profiles get a default one on first read.
+
+### programme_settings ✅ Phase 3
+`organisationId (unique), pilot{communities, facilities, chws, patients, durationWeeks,
+startDate}, referralExpectedArrivalDays, appointmentOverdueGraceDays, offlineSessionGraceDays,
+updatedBy, version`. Absent until first saved; the API then reports defaults with
+`configured: false`.
 
 ### households (SD)
 `organisationId, communityId, householdCode (human, unique per org), headName?, address/landmark,
@@ -169,10 +178,9 @@ re-sync well before.
 changes? (field names only for PII fields, never values)`. Index `{organisationId, at}`,
 `{entityType, entityId}`.
 
-### settings
-Scope `platform` or per `organisationId`: pilot targets (communities, facilities, CHWs, patients,
-durationWeeks, startDate), referral expected-arrival default (days), appointment overdue grace,
-offline session grace period, retention periods, escalation contacts.
+### settings (later phases)
+Retention periods and escalation contacts will be added to `programme_settings` once agreed with
+the programme (decisions A5, A11).
 
 ### counters
 `{_id: '<org>:patientCode' | 'syncSeq', seq}` — atomic `$inc` for human IDs and sync sequence.

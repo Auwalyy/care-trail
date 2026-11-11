@@ -54,10 +54,13 @@ domain in production** (e.g. `app.caretrail.example` and `api.caretrail.example`
 | PATCH /users/:id | `user:manage` | ✅ name, phone, language, facility/community reassignment; `version` required |
 | POST /users/:id/status | `user:manage` | ✅ `{status: active\|inactive, version}`; deactivation revokes all sessions immediately |
 | POST /users/:id/password-link | `user:manage` | ✅ new activation link (pending users) or 24 h reset link (active users) |
-| GET /organisations | `organisation:read` | ✅ read-only list (Phase 2); create/update in Phase 3 (`organisation:manage`) |
-| GET /communities | `community:read` | ✅ read-only list, organisation-scoped; create/update in Phase 3 |
-| GET /facilities | `facility:read` | ✅ read-only list, organisation-scoped; create/update in Phase 3 |
-| POST/GET/PATCH /chws | `chw:manage` / `chw:read` | |
+| GET /organisations, /organisations/:id | `organisation:read` | ✅ platform → all; others → own organisation only |
+| POST /organisations, PATCH /organisations/:id | `organisation:manage` | ✅ platform admin; code unique and immutable; deactivation refused while user accounts exist |
+| GET/POST /facilities, GET/PATCH /facilities/:id | `facility:read` / `facility:manage` | ✅ organisation-scoped; platform admins pass `organisationId`; code unique per org; deactivation refused while staff are assigned |
+| GET/POST /communities, GET/PATCH /communities/:id | `community:read` / `community:manage` | ✅ unique (org, LGA, name); deactivation refused while CHWs are assigned |
+| GET/POST /chws, GET/PATCH /chws/:id | `chw:read` / `chw:manage` | ✅ `:id` is the CHW's user id; POST creates account + profile atomically and returns an activation link; PATCH edits profile (communities, programme areas, `canIssueReferrals`, supervisor). Account status/links via `/users`. |
+| GET /settings, PUT /settings | `settings:manage` | ✅ per organisation (`?organisationId=` for platform admins); `configured:false` with defaults until first save; PUT with `version` (0 = first save) |
+| GET /analytics/overview | `analytics:read` | ✅ aggregate counts (facilities, communities, CHWs by status, staff) + pilot targets; no personal data |
 | POST /patients | `patient:create` | duplicate check → `409 POSSIBLE_DUPLICATE` with candidates unless `confirmNotDuplicate=true` |
 | GET /patients, /patients/:id | `patient:read` | scope-filtered; profile reads audited |
 | PATCH /patients/:id | `patient:update` | identity fields need `version` |
@@ -83,8 +86,7 @@ domain in production** (e.g. `app.caretrail.example` and `api.caretrail.example`
 | POST /sync/push | `sync:use` | see offline-sync.md |
 | GET /sync/pull?cursor= | `sync:use` | |
 | GET /sync/status | `sync:use` | |
-| GET /audit-logs | `audit:read` | |
-| GET/PATCH /settings | `settings:manage` | pilot configuration |
+| GET /audit-logs | `audit:read` | ✅ scoped; filters `action` (prefix), `outcome`, `entityType`, `entityId`, `actorId`, `from`, `to`; actor names resolved |
 | GET /health, /health/ready | public | liveness / readiness (DB ping) |
 
 The canonical role → permission map lives in `packages/shared-types/src/permissions.ts`.

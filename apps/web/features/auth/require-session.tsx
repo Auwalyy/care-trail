@@ -21,23 +21,26 @@ export function RequireSession({ children }: { children: ReactNode }) {
     if (status === 'anonymous') router.replace(`/login?next=${encodeURIComponent(pathname)}`);
   }, [status, pathname, router]);
 
-  if (status !== 'authenticated') {
-    return (
-      <div className="flex min-h-full flex-1" role="status" aria-label="Loading your session">
-        <div className="hidden w-60 border-e bg-sidebar p-4 md:block">
-          <Skeleton className="mb-8 h-8 w-32" />
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="mb-3 h-6 w-full" />
-          ))}
-        </div>
-        <div className="flex-1 p-6">
-          <Skeleton className="mb-6 h-8 w-48" />
-          <Skeleton className="h-48 w-full" />
-        </div>
-      </div>
-    );
-  }
+  if (status !== 'authenticated') return <ShellSkeleton />;
   return <>{children}</>;
+}
+
+/** Placeholder for the signed-in shell (session restore, and Suspense fallback on dynamic routes). */
+export function ShellSkeleton() {
+  return (
+    <div className="flex min-h-full flex-1" role="status" aria-label="Loading your session">
+      <div className="hidden w-60 border-e bg-sidebar p-4 md:block">
+        <Skeleton className="mb-8 h-8 w-32" />
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="mb-3 h-6 w-full" />
+        ))}
+      </div>
+      <div className="flex-1 p-6">
+        <Skeleton className="mb-6 h-8 w-48" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    </div>
+  );
 }
 
 /** Renders a "no access" state instead of the page when a permission is missing. */

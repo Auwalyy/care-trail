@@ -8,3 +8,4 @@ export * from './api.js';
 export * from './auth.js';
 export * from './directory.js';
 export * from './administration.js';
+export * from './patients.js';

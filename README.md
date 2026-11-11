@@ -100,6 +100,23 @@ first. After changing a package while a dev server is running, run `npm run buil
 
 ## Phase status
 
+### Phase 3: Core administration
+
+Verified on 2026-11-11. Totals: 121 automated tests (API 81, shared packages 40), plus a
+23-check end-to-end run against the compiled API and the production web build.
+
+| Item | Status | Evidence |
+|---|---|---|
+| Organisations CRUD (platform admin), unique immutable codes, guarded deactivation | ✅ | `administration.test.ts` + e2e |
+| Facilities and communities CRUD, organisation pinned by scope, per-org uniqueness, deactivation refused while staff or CHWs are assigned | ✅ | Tests + e2e |
+| CHW profiles (programme areas, referral authorisation, supervisor, device-sync fields) created atomically with the account; backfill for older accounts | ✅ | Tests + e2e |
+| Programme settings (pilot targets unset until saved, operational thresholds), optimistic concurrency | ✅ | Tests + e2e |
+| Audit-log viewer (scoped, filters, actor names) and CHW activity history | ✅ | Tests + e2e |
+| Analytics overview: real counts vs. pilot targets, no personal data | ✅ | Tests + e2e |
+| **Scope bug found and fixed**: id lookups could be overridden by `_id`-keyed scope filters | ✅ | `scope-isolation.test.ts`; decisions A23 |
+| Web: Organisations, Facilities, Communities, Health workers (list + detail), Programme settings, Audit log, dashboard figures, grouped sidebar, organisation switcher for platform admins | ✅ build | `next build` (CHW detail partially prerendered), typecheck and lint clean; all pages served 200 |
+| Web screens clicked through in a real browser | ⬜ not yet verified | No browser automation was available in this environment |
+
 ### Phase 2: Authentication & access control
 
 Verified on 2026-11-11. Totals: 101 automated tests (API 61, shared packages 40), plus a
@@ -138,5 +155,5 @@ Verified on Windows 11, Node 26.8, on 2026-11-11.
 | Docker images and compose stack | 🟡 written, not run | Docker is not installed on the dev machine. The API image's npm ci, build, prod-install and boot steps were replayed locally and work. |
 | `expo-doctor` | ⬜ | The npx-downloaded expo-doctor crashed (`Cannot find module '@expo/env'`), a tooling issue. `expo install --check` passed. |
 
-Next: **Phase 3 — Core administration** (organisations, facilities, communities, CHW profiles,
-pilot settings, audit viewer). See [docs/roadmap.md](docs/roadmap.md).
+Next: **Phase 4 — Patients** (registration, households, consent, profiles, search,
+duplicate detection). See [docs/roadmap.md](docs/roadmap.md).

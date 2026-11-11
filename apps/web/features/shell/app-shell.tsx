@@ -42,10 +42,33 @@ function initials(name: string) {
     .join('');
 }
 
+const GROUP_LABELS: Record<NavItem['group'], string | null> = { main: null, administration: 'Administration', account: 'Account' };
+
 function NavLinks({ items, collapsed, onNavigate }: { items: NavItem[]; collapsed: boolean; onNavigate?: () => void }) {
+  const groups = (['main', 'administration', 'account'] as const)
+    .map((g) => ({ g, items: items.filter((i) => i.group === g) }))
+    .filter((x) => x.items.length > 0);
+  return (
+    <nav aria-label="Main" className="grid gap-4">
+      {groups.map(({ g, items: groupItems }) => (
+        <div key={g} className="grid gap-1">
+          {GROUP_LABELS[g] &&
+            (collapsed ? (
+              <hr className="mx-2 mb-1 border-border" />
+            ) : (
+              <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">{GROUP_LABELS[g]}</p>
+            ))}
+          <NavGroup items={groupItems} collapsed={collapsed} {...(onNavigate ? { onNavigate } : {})} />
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+function NavGroup({ items, collapsed, onNavigate }: { items: NavItem[]; collapsed: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Main" className="grid gap-1">
+    <>
       {items.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         const link = (
@@ -73,7 +96,7 @@ function NavLinks({ items, collapsed, onNavigate }: { items: NavItem[]; collapse
           link
         );
       })}
-    </nav>
+    </>
   );
 }
 

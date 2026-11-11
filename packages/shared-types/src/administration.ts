@@ -8,6 +8,8 @@ export interface ChwDto {
   programmeAreas: string[];
   canIssueReferrals: boolean;
   supervisorUserId: string | null;
+  /** Active patients assigned to this CHW. */
+  assignedPatients: number;
   /** Populated by the sync engine (Phase 8). Null until the CHW's device first syncs. */
   device: { lastSyncAt: string | null; appVersion: string | null; pendingOperations: number | null };
   version: number;
@@ -47,6 +49,11 @@ export interface ProgrammeSettingsDto {
   appointmentOverdueGraceDays: number;
   /** How long the mobile app may be unlocked offline before an online sign-in is required. */
   offlineSessionGraceDays: number;
+  /**
+   * Version reference of the programme-approved consent wording (EN/HA) that CHWs read out.
+   * CARETRAIL records which version was used; the wording itself is owned by the programme.
+   */
+  consentTextVersion: string | null;
   /** False until an administrator saves settings for the first time (defaults shown). */
   configured: boolean;
   version: number;
@@ -57,6 +64,7 @@ export const DEFAULT_PROGRAMME_SETTINGS = {
   referralExpectedArrivalDays: 7,
   appointmentOverdueGraceDays: 1,
   offlineSessionGraceDays: 14,
+  consentTextVersion: null,
 } as const;
 
 export interface AuditLogDto {
