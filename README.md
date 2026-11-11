@@ -44,10 +44,29 @@ cp apps/mobile/.env.example apps/mobile/.env # set your LAN IP for a physical de
 
 docker compose up -d mongo redis             # MongoDB replica set + Redis
 
+npm run create-admin -w @caretrail/api   # first platform administrator (prompts; no default password)
+npm run seed:dev -w @caretrail/api       # optional: DEMO organisation/facilities/communities (dev only)
+
 npm run dev:api      # http://localhost:4000  (Swagger UI: /api/docs)
 npm run dev:web      # http://localhost:3000
 npm run dev:mobile   # Expo dev server
 ```
+
+`apps/api/.env` must contain `JWT_ACCESS_SECRET` (≥ 32 characters). Generate one with
+`node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`.
+In a production container run the compiled script instead:
+`node dist/scripts/create-platform-admin.js`.
+
+### Onboarding people
+
+Admins never choose passwords for others. Creating a user returns a **one-time activation link**
+(valid 7 days). Hand it to the person, who opens it and sets their own password. For a forgotten
+password, an administrator issues a reset link from **Users → ⋯ → Issue password reset link**
+(valid 24 h). Self-service "Forgot password" also works, but emails are not delivered until a
+provider is configured (Phase 9).
+
+**Production:** the refresh cookie is `SameSite=Strict`, so host the web app and API on the same
+registrable domain (e.g. `app.example.org` and `api.example.org`) over HTTPS.
 
 Shared packages compile to `dist/`. The `dev:*`, `test` and `typecheck` scripts build them
 first. After changing a package while a dev server is running, run `npm run build:packages`.
@@ -79,7 +98,30 @@ first. After changing a package while a dev server is running, run `npm run buil
   - mongodb-memory-server downloads lazily.
   - `@scarf/scarf` is telemetry.
 
-## Phase 1 status (Foundation)
+## Phase status
+
+### Phase 2: Authentication & access control
+
+Verified on 2026-11-11. Totals: 101 automated tests (API 61, shared packages 40), plus a
+24-check end-to-end run against the compiled API and the production web build.
+
+| Item | Status | Evidence |
+|---|---|---|
+| Argon2id hashing (`@node-rs/argon2`, prebuilt binaries incl. Alpine/musl, no install script) | ✅ | Hash format checked in DB; login tests |
+| Login with generic errors, timing equalisation, lockout (5 attempts / 15 min, configurable) | ✅ | `auth.test.ts` |
+| 15-min access JWT; user re-loaded per request so deactivation and revocation apply immediately | ✅ | Tests + e2e: deactivated CHW locked out at once |
+| Rotating refresh tokens: web httpOnly `SameSite=Strict` cookie, mobile body token, 30 s retry grace, family revocation on reuse | ✅ | Rotation, grace, reuse, expiry and cookie tests |
+| Logout, logout of all devices, change password (other devices signed out), forgot/reset password, account activation | ✅ | Tests + e2e |
+| RBAC from `ROLE_PERMISSIONS` and access scopes (platform / organisation / facility / CHW) enforced in repositories | ✅ | `users.test.ts`, `directory.test.ts`: cross-org reads 404, explicit filters can't widen scope |
+| User management: create (role matrix), update (optimistic concurrency), activate/deactivate, password links | ✅ | Escalation, cross-org, duplicate and version-conflict tests |
+| Append-only audit log (logins, failures, lockouts, reuse, user changes) with no PII in metadata | ✅ | Tests assert no email/phone in audit records |
+| `create-admin` bootstrap script; `seed:dev` demo data (refuses in production) | ✅ | Run against a live replica set |
+| OpenAPI for auth/users, request bodies generated from the shared Zod schemas | ✅ | `app.test.ts` |
+| Web: sign-in, forgot/reset/activate, protected shell (collapsible sidebar, mobile sheet, breadcrumbs, user menu), dashboard, Users, My profile | ✅ build | `next build`, typegen + `tsc`, eslint clean; pages served 200; API flow verified e2e |
+| Web screens clicked through in a real browser | ⬜ not yet verified | No browser automation was available in this environment |
+| Web/mobile Hausa translation layer | ⬜ deferred | Planned with the mobile app (Phase 7). See decisions A20. |
+
+### Phase 1: Foundation
 
 Verified on Windows 11, Node 26.8, on 2026-11-11.
 
@@ -96,4 +138,5 @@ Verified on Windows 11, Node 26.8, on 2026-11-11.
 | Docker images and compose stack | 🟡 written, not run | Docker is not installed on the dev machine. The API image's npm ci, build, prod-install and boot steps were replayed locally and work. |
 | `expo-doctor` | ⬜ | The npx-downloaded expo-doctor crashed (`Cannot find module '@expo/env'`), a tooling issue. `expo install --check` passed. |
 
-Next: **Phase 2 — Authentication & access control.** See [docs/roadmap.md](docs/roadmap.md).
+Next: **Phase 3 — Core administration** (organisations, facilities, communities, CHW profiles,
+pilot settings, audit viewer). See [docs/roadmap.md](docs/roadmap.md).

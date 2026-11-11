@@ -9,11 +9,32 @@ import { pingDatabase } from './database/connection.js';
 import { createErrorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { apiRateLimit } from './middleware/rate-limit.js';
 import { requestId } from './middleware/request-id.js';
+import {
+  createCommunitySchema,
+  createFacilitySchema,
+  createOrganisationSchema,
+  directoryListQuerySchema,
+  updateCommunitySchema,
+  updateFacilitySchema,
+  updateOrganisationSchema,
+} from '@caretrail/validation';
 import { createAuthenticate } from './middleware/authenticate.js';
-import { directoryListRoutes } from './modules/access/directory.routes.js';
+import { scopedCrudRoutes } from './modules/access/crud-routes.js';
+import { analyticsRoutes } from './modules/analytics/analytics.routes.js';
+import { AnalyticsService } from './modules/analytics/analytics.service.js';
+import { AuditQueryService } from './modules/audit/audit.query.js';
+import { auditRoutes } from './modules/audit/audit.routes.js';
+import { ChwRepository } from './modules/chws/chw.repository.js';
+import { chwRoutes } from './modules/chws/chw.routes.js';
+import { ChwService } from './modules/chws/chw.service.js';
 import { CommunityRepository } from './modules/communities/community.repository.js';
+import { CommunityService } from './modules/communities/community.service.js';
 import { FacilityRepository } from './modules/facilities/facility.repository.js';
+import { FacilityService } from './modules/facilities/facility.service.js';
 import { OrganisationRepository } from './modules/organisations/organisation.repository.js';
+import { OrganisationService } from './modules/organisations/organisation.service.js';
+import { settingsRoutes } from './modules/settings/settings.routes.js';
+import { SettingsService } from './modules/settings/settings.service.js';
 import { AuditService } from './modules/audit/audit.service.js';
 import { AccessTokenService } from './modules/auth/access-token.service.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
@@ -115,9 +136,41 @@ export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now
 
   api.use('/auth', authRoutes({ service: authService, authenticate, env, rateLimit: env.NODE_ENV !== 'test' }));
   api.use('/users', userRoutes({ service: userService, authenticate }));
-  api.use('/organisations', directoryListRoutes({ repo: new OrganisationRepository(), permission: 'organisation:read', authenticate }));
-  api.use('/facilities', directoryListRoutes({ repo: new FacilityRepository(), permission: 'facility:read', authenticate }));
-  api.use('/communities', directoryListRoutes({ repo: new CommunityRepository(), permission: 'community:read', authenticate }));
+  api.use(
+    '/organisations',
+    scopedCrudRoutes({
+      service: new OrganisationService({ repo: new OrganisationRepository(), audit }),
+      authenticate,
+      read: 'organisation:read',
+      manage: 'organisation:manage',
+      schemas: { list: directoryListQuerySchema, create: createOrganisationSchema, update: updateOrganisationSchema },
+    }),
+  );
+  api.use(
+    '/facilities',
+    scopedCrudRoutes({
+      service: new FacilityService({ repo: new FacilityRepository(), audit }),
+      authenticate,
+      read: 'facility:read',
+      manage: 'facility:manage',
+      schemas: { list: directoryListQuerySchema, create: createFacilitySchema, update: updateFacilitySchema },
+    }),
+  );
+  api.use(
+    '/communities',
+    scopedCrudRoutes({
+      service: new CommunityService({ repo: new CommunityRepository(), audit }),
+      authenticate,
+      read: 'community:read',
+      manage: 'community:manage',
+      schemas: { list: directoryListQuerySchema, create: createCommunitySchema, update: updateCommunitySchema },
+    }),
+  );
+  api.use('/chws', chwRoutes({ service: new ChwService({ repo: new ChwRepository(), users: userService, audit }), authenticate }));
+  const settings = new SettingsService({ audit });
+  api.use('/settings', settingsRoutes({ service: settings, authenticate }));
+  api.use('/audit-logs', auditRoutes({ service: new AuditQueryService(), authenticate }));
+  api.use('/analytics', analyticsRoutes({ service: new AnalyticsService({ settings }), authenticate }));
   // Further feature modules (organisations, patients, referrals, …) are mounted here.
 
   app.use('/api/v1', api);

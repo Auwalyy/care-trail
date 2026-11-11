@@ -13,6 +13,7 @@ import { AppError } from '../../utils/app-error.js';
 import type { AuditService } from '../audit/audit.service.js';
 import type { AuthService } from '../auth/auth.service.js';
 import { LINK_TTL_MS, type PasswordLinkService } from '../auth/password-link.service.js';
+import { ChwProfileModel } from '../chws/chw.model.js';
 import { CommunityModel } from '../communities/community.model.js';
 import { FacilityModel } from '../facilities/facility.model.js';
 import { OrganisationModel } from '../organisations/organisation.model.js';
@@ -53,7 +54,12 @@ export class UserService {
     return toUserDto(await this.findVisible(auth, id));
   }
 
-  async create(auth: AuthContext, input: CreateUserInput, ctx: RequestContext): Promise<CreatedUserResponse> {
+  async create(
+    auth: AuthContext,
+    input: CreateUserInput,
+    ctx: RequestContext,
+    chwProfile?: { programmeAreas: string[]; canIssueReferrals: boolean; supervisorUserId: Types.ObjectId | null },
+  ): Promise<CreatedUserResponse> {
     this.assertCanManageRole(auth, input.role);
     const assignment = await this.resolveAssignment(auth, input.role, {
       organisationId: input.organisationId ?? null,
@@ -85,6 +91,21 @@ export class UserService {
           }
           throw err;
         });
+      if (user.role === 'chw') {
+        // Every CHW has a programme profile, however the account was created.
+        await ChwProfileModel.create(
+          [
+            {
+              userId: user._id,
+              organisationId: user.organisationId as Types.ObjectId, // CHWs always have one (ROLE_REQUIREMENTS)
+              programmeAreas: chwProfile?.programmeAreas ?? [],
+              canIssueReferrals: chwProfile?.canIssueReferrals ?? false,
+              supervisorUserId: chwProfile?.supervisorUserId ?? null,
+            },
+          ],
+          { session },
+        );
+      }
       const activation = await this.deps.links.issue(
         { userId: user._id, purpose: 'activation', ttlMs: LINK_TTL_MS.activation, issuedBy: auth.userId },
         now,
@@ -202,7 +223,8 @@ export class UserService {
    * Validates organisation / facility / community links for a role, forcing them to the actor's
    * own organisation or facility where the actor is confined to one.
    */
-  private async resolveAssignment(
+  /** Also used by the CHW service when reassigning communities. */
+  async resolveAssignment(
     auth: AuthContext,
     role: Role,
     input: { organisationId: string | Types.ObjectId | null; facilityId: string | Types.ObjectId | null; communityIds: (string | Types.ObjectId)[] },

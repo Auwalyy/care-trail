@@ -2,6 +2,7 @@ import type { ClientSession, QueryFilter, Types, UpdateQuery } from 'mongoose';
 import type { ListUsersQuery } from '@caretrail/validation';
 import type { AccessScope } from '../access/access-scope.js';
 import { UserModel, type UserDoc } from './user.model.js';
+import { withinScope } from '../access/access-scope.js';
 
 /** Users visible within a scope. CHWs only ever see themselves. */
 export function userScopeFilter(scope: AccessScope): QueryFilter<UserDoc> {
@@ -45,7 +46,7 @@ export class UserRepository {
   }
 
   findInScope(scope: AccessScope, id: Types.ObjectId | string): Promise<UserDoc | null> {
-    return UserModel.findOne({ _id: id, ...userScopeFilter(scope) }).lean<UserDoc>();
+    return UserModel.findOne(withinScope<UserDoc>({ _id: id }, userScopeFilter(scope))).lean<UserDoc>();
   }
 
   async create(doc: Partial<UserDoc>, session?: ClientSession): Promise<UserDoc> {

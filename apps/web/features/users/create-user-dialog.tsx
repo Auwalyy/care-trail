@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useSession } from '@/features/auth/session-store';
 import { useCommunities, useFacilities, useOrganisations } from '@/features/directory/use-directory';
 import { api } from '@/services/api';
-import { applyApiErrors } from './apply-api-errors';
+import { applyApiErrors } from '@/components/form/apply-api-errors';
 import { CommunityPicker, FacilitySelect } from './assignment-fields';
 import type { IssuedLinkInfo } from './issued-link-dialog';
 import { LANGUAGE_LABELS } from './labels';

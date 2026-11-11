@@ -7,3 +7,4 @@ export * from './follow-up.js';
 export * from './api.js';
 export * from './auth.js';
 export * from './directory.js';
+export * from './administration.js';

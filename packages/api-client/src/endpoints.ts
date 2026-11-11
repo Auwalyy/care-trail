@@ -1,19 +1,98 @@
 import type {
   ApiList,
   ApiSuccess,
+  AuditLogDto,
   AuthClient,
   AuthenticatedUser,
+  ChwDto,
   CommunityDto,
+  CreatedChwResponse,
   CreatedUserResponse,
   FacilityDto,
+  FacilityType,
   IssuedLink,
   Language,
   LoginResponse,
   OrganisationDto,
+  OverviewDto,
+  PilotTargets,
+  ProgrammeSettingsDto,
+  RecordStatus,
   Role,
   UserDto,
   UserStatus,
 } from '@caretrail/shared-types';
+
+export interface OrganisationBody {
+  name?: string;
+  code?: string;
+  state?: string;
+  contactEmail?: string | null;
+  status?: RecordStatus;
+}
+export interface FacilityBody {
+  organisationId?: string | null;
+  name?: string;
+  code?: string;
+  type?: FacilityType;
+  lga?: string;
+  ward?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  status?: RecordStatus;
+}
+export interface CommunityBody {
+  organisationId?: string | null;
+  name?: string;
+  lga?: string;
+  ward?: string | null;
+  status?: RecordStatus;
+}
+export interface CreateChwBody {
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  preferredLanguage?: Language;
+  organisationId?: string | null;
+  communityIds: string[];
+  programmeAreas?: string[];
+  canIssueReferrals?: boolean;
+  supervisorUserId?: string | null;
+}
+export interface UpdateChwBody {
+  communityIds?: string[];
+  programmeAreas?: string[];
+  canIssueReferrals?: boolean;
+  supervisorUserId?: string | null;
+  version: number;
+}
+export interface ListChwsParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  communityId?: string;
+  status?: UserStatus;
+  organisationId?: string;
+}
+export interface SettingsBody {
+  pilot: PilotTargets;
+  referralExpectedArrivalDays: number;
+  appointmentOverdueGraceDays: number;
+  offlineSessionGraceDays: number;
+  version: number;
+}
+export interface ListAuditParams {
+  page?: number;
+  pageSize?: number;
+  action?: string;
+  outcome?: 'success' | 'failure';
+  entityType?: string;
+  entityId?: string;
+  actorId?: string;
+  organisationId?: string;
+  from?: Date;
+  to?: Date;
+}
 import type { ApiClient, QueryValue } from './client.js';
 
 export interface ListUsersParams {
@@ -58,6 +137,16 @@ export interface DirectoryParams {
 const data = async <T>(p: Promise<ApiSuccess<T>>) => (await p).data;
 const q = (params?: object) => params as Record<string, QueryValue> | undefined;
 
+/** Standard list/get/create/update endpoints for organisation-scoped reference data. */
+function crud<D, B>(client: ApiClient, base: string) {
+  return {
+    list: (params?: DirectoryParams) => client.get<ApiList<D>>(base, { query: q(params) }),
+    get: (id: string) => client.getData<D>(`${base}/${id}`),
+    create: (body: B) => data(client.post<ApiSuccess<D>>(base, body)),
+    update: (id: string, body: B & { version: number }) => data(client.patch<ApiSuccess<D>>(`${base}/${id}`, body)),
+  };
+}
+
 /** Typed endpoint functions shared by the web and mobile apps. */
 export function createCaretrailApi(client: ApiClient) {
   return {
@@ -86,14 +175,25 @@ export function createCaretrailApi(client: ApiClient) {
         data(client.post<ApiSuccess<UserDto>>(`/users/${id}/status`, { status, version })),
       issuePasswordLink: (id: string) => data(client.post<ApiSuccess<IssuedLink>>(`/users/${id}/password-link`)),
     },
-    organisations: {
-      list: (params?: DirectoryParams) => client.get<ApiList<OrganisationDto>>('/organisations', { query: q(params) }),
+    organisations: crud<OrganisationDto, OrganisationBody>(client, '/organisations'),
+    facilities: crud<FacilityDto, FacilityBody>(client, '/facilities'),
+    communities: crud<CommunityDto, CommunityBody>(client, '/communities'),
+    chws: {
+      list: (params?: ListChwsParams) => client.get<ApiList<ChwDto>>('/chws', { query: q(params) }),
+      get: (id: string) => client.getData<ChwDto>(`/chws/${id}`),
+      create: (body: CreateChwBody) => data(client.post<ApiSuccess<CreatedChwResponse>>('/chws', body)),
+      update: (id: string, body: UpdateChwBody) => data(client.patch<ApiSuccess<ChwDto>>(`/chws/${id}`, body)),
     },
-    facilities: {
-      list: (params?: DirectoryParams) => client.get<ApiList<FacilityDto>>('/facilities', { query: q(params) }),
+    settings: {
+      get: (organisationId?: string) => client.getData<ProgrammeSettingsDto>('/settings', { query: q({ organisationId }) }),
+      save: (body: SettingsBody, organisationId?: string) =>
+        data(client.request<ApiSuccess<ProgrammeSettingsDto>>('PUT', '/settings', { body, query: q({ organisationId }) })),
     },
-    communities: {
-      list: (params?: DirectoryParams) => client.get<ApiList<CommunityDto>>('/communities', { query: q(params) }),
+    auditLogs: {
+      list: (params?: ListAuditParams) => client.get<ApiList<AuditLogDto>>('/audit-logs', { query: q(params) }),
+    },
+    analytics: {
+      overview: (organisationId?: string) => client.getData<OverviewDto>('/analytics/overview', { query: q({ organisationId }) }),
     },
   };
 }

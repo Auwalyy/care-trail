@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import type { Permission } from '@caretrail/shared-types';
 import { useCan } from '@/features/auth/session-store';
@@ -15,6 +15,7 @@ function useGuardedQuery<T>(key: string, permission: Permission, fn: () => Promi
   return useQuery({ queryKey: ['directory', key], queryFn: async () => (await fn()).data, enabled: allowed, staleTime: 5 * 60_000 });
 }
 
+/** All organisations/facilities/communities visible to the user (for pickers and name lookups). */
 export function useOrganisations() {
   const q = useGuardedQuery('organisations', 'organisation:read', () => api.organisations.list(LIST_ALL));
   return { ...q, names: useNameMap(q.data) };
@@ -28,4 +29,11 @@ export function useFacilities() {
 export function useCommunities() {
   const q = useGuardedQuery('communities', 'community:read', () => api.communities.list(LIST_ALL));
   return { ...q, names: useNameMap(q.data) };
+}
+
+/** Call after any reference-data change so pickers and name lookups refresh. */
+export function useInvalidateDirectory() {
+  const qc = useQueryClient();
+  return (resource: string) =>
+    Promise.all([qc.invalidateQueries({ queryKey: ['directory'] }), qc.invalidateQueries({ queryKey: [resource] }), qc.invalidateQueries({ queryKey: ['overview'] })]);
 }

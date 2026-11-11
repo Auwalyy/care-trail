@@ -1,10 +1,25 @@
-/** Reference data that users are attached to. Full management arrives in Phase 3. */
+/** Reference data: organisations (tenants), facilities and communities. */
+export type RecordStatus = 'active' | 'inactive';
+
+export const FACILITY_TYPES = ['phc', 'general_hospital', 'other'] as const;
+export type FacilityType = (typeof FACILITY_TYPES)[number];
+
+export const FACILITY_TYPE_LABELS: Record<FacilityType, string> = {
+  phc: 'Primary Health Centre',
+  general_hospital: 'General Hospital',
+  other: 'Other',
+};
+
 export interface OrganisationDto {
   id: string;
   name: string;
   code: string;
   state: string;
-  status: 'active' | 'inactive';
+  contactEmail: string | null;
+  status: RecordStatus;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FacilityDto {
@@ -12,10 +27,15 @@ export interface FacilityDto {
   organisationId: string;
   name: string;
   code: string;
-  type: 'phc' | 'general_hospital' | 'other';
+  type: FacilityType;
   lga: string;
   ward: string | null;
-  status: 'active' | 'inactive';
+  address: string | null;
+  phone: string | null;
+  status: RecordStatus;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CommunityDto {
@@ -24,5 +44,8 @@ export interface CommunityDto {
   name: string;
   lga: string;
   ward: string | null;
-  status: 'active' | 'inactive';
+  status: RecordStatus;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 }
