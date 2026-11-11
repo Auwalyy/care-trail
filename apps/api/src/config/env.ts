@@ -22,20 +22,25 @@ export const envSchema = z
       ),
     TRUST_PROXY: z.coerce.number().int().min(0).default(0),
     MONGODB_URI: z.string().regex(/^mongodb(\+srv)?:\/\//, 'MONGODB_URI must be a mongodb:// URI'),
-    JWT_ACCESS_SECRET: z.string().optional(),
-    JWT_ACCESS_TTL: z.string().default('15m'),
+    JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
+    JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+    JWT_ISSUER: z.string().default('caretrail-api'),
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    /** Public URL of the web app — used to build activation and password-reset links. */
+    WEB_APP_URL: z.url().default('http://localhost:3000'),
+    LOGIN_MAX_FAILED_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
+    LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
     REDIS_URL: z.string().optional(),
     API_DOCS_ENABLED: booleanString.default(true),
     APP_VERSION: z.string().default('0.1.0'),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production') {
-      if (!env.JWT_ACCESS_SECRET || env.JWT_ACCESS_SECRET.length < 32) {
+      if (!env.WEB_APP_URL.startsWith('https://')) {
         ctx.addIssue({
           code: 'custom',
-          path: ['JWT_ACCESS_SECRET'],
-          message: 'JWT_ACCESS_SECRET must be set to at least 32 characters in production',
+          path: ['WEB_APP_URL'],
+          message: 'WEB_APP_URL must use https in production (reset links carry secrets)',
         });
       }
       if (env.CORS_ORIGINS.includes('*')) {

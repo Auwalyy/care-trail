@@ -5,3 +5,4 @@ export * from './referral.js';
 export * from './referral-code.js';
 export * from './follow-up.js';
 export * from './api.js';
+export * from './auth.js';

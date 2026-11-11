@@ -9,8 +9,20 @@ import { pingDatabase } from './database/connection.js';
 import { createErrorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { apiRateLimit } from './middleware/rate-limit.js';
 import { requestId } from './middleware/request-id.js';
+import { createAuthenticate } from './middleware/authenticate.js';
+import { AuditService } from './modules/audit/audit.service.js';
+import { AccessTokenService } from './modules/auth/access-token.service.js';
+import { authRoutes } from './modules/auth/auth.routes.js';
+import { AuthService } from './modules/auth/auth.service.js';
+import { PasswordHasher } from './modules/auth/password-hasher.js';
+import { LogOnlyPasswordLinkNotifier, type PasswordLinkNotifier } from './modules/auth/password-link-notifier.js';
+import { PasswordLinkService } from './modules/auth/password-link.service.js';
+import { SessionService } from './modules/auth/session.service.js';
 import { HealthService, type HealthCheck } from './modules/health/health.service.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { UserRepository } from './modules/users/user.repository.js';
+import { userRoutes } from './modules/users/user.routes.js';
+import { UserService } from './modules/users/user.service.js';
 import { AppError } from './utils/app-error.js';
 import type { Logger } from './utils/logger.js';
 
@@ -19,9 +31,11 @@ export interface AppDependencies {
   logger: Logger;
   /** Overridable for tests. */
   healthChecks?: Record<string, HealthCheck>;
+  passwordLinkNotifier?: PasswordLinkNotifier;
+  now?: () => Date;
 }
 
-export function createApp({ env, logger, healthChecks }: AppDependencies): Express {
+export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now }: AppDependencies): Express {
   const app = express();
 
   app.disable('x-powered-by');
@@ -77,7 +91,27 @@ export function createApp({ env, logger, healthChecks }: AppDependencies): Expre
     );
   }
 
-  // Feature modules are mounted here in later phases (auth, patients, referrals, …).
+  // ── Composition root ─────────────────────────────────────────────────────────
+  const audit = new AuditService();
+  const accessTokens = new AccessTokenService(env);
+  const links = new PasswordLinkService(env.WEB_APP_URL);
+  const authService = new AuthService({
+    env,
+    logger,
+    audit,
+    hasher: new PasswordHasher(),
+    accessTokens,
+    sessions: new SessionService(env.REFRESH_TOKEN_TTL_DAYS),
+    links,
+    notifier: passwordLinkNotifier ?? new LogOnlyPasswordLinkNotifier(logger, env.NODE_ENV === 'development'),
+    ...(now ? { now } : {}),
+  });
+  const authenticate = createAuthenticate(accessTokens);
+  const userService = new UserService({ repo: new UserRepository(), audit, auth: authService, links, ...(now ? { now } : {}) });
+
+  api.use('/auth', authRoutes({ service: authService, authenticate, env, rateLimit: env.NODE_ENV !== 'test' }));
+  api.use('/users', userRoutes({ service: userService, authenticate }));
+  // Further feature modules (organisations, patients, referrals, …) are mounted here.
 
   app.use('/api/v1', api);
   app.use(notFoundHandler);

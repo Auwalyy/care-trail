@@ -10,13 +10,18 @@ export interface ValidationSchemas {
 /**
  * Validates and replaces req.body / params, and stores the parsed query on res.locals.query
  * (Express 5 makes req.query a read-only getter). ZodErrors are turned into 400 responses by the
- * error handler.
+ * error handler. A missing body (no JSON content) is validated as `{}`.
  */
 export function validate(schemas: ValidationSchemas): RequestHandler {
   return (req, res, next) => {
     if (schemas.params) req.params = schemas.params.parse(req.params) as typeof req.params;
     if (schemas.query) res.locals.query = schemas.query.parse(req.query);
-    if (schemas.body) req.body = schemas.body.parse(req.body);
+    if (schemas.body) req.body = schemas.body.parse(req.body ?? {});
     next();
   };
+}
+
+/** Typed access to the query parsed by `validate({ query })`. */
+export function parsedQuery<T>(locals: { query?: unknown }): T {
+  return locals.query as T;
 }

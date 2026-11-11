@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.next
+**/.expo
+**/coverage
+**/.env
+**/.env.*
+.git
+docs
+# The mobile app is never built in Docker, but its manifest is needed for `npm ci` to match the lockfile.
+apps/mobile/*
+!apps/mobile/package.json
