@@ -6,7 +6,7 @@ import { MemoryStore } from './memory-store.js';
 import type { Transport } from './types.js';
 
 const emptyPull = (cursor: string): SyncPullResponse => ({
-  cursor, serverTime: cursor, patients: [], assignedPatientIds: [], households: [], referrals: [], appointments: [], followUps: [], visits: [], facilities: [], communities: [], templates: [],
+  cursor, serverTime: cursor, patients: [], assignedPatientIds: [], households: [], referrals: [], appointments: [], followUps: [], visits: [], facilities: [], communities: [], templates: [], education: [], messages: [],
   settings: { offlineSessionGraceDays: 14, consentTextVersion: null, referralExpectedArrivalDays: 7 }, canIssueReferrals: false,
 });
 

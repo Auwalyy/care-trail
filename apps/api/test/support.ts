@@ -3,7 +3,11 @@ import mongoose, { type Types } from 'mongoose';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import type { Role } from '@caretrail/shared-types';
-import { createApp } from '../src/app.js';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createApp, type AppDependencies } from '../src/app.js';
+import { LocalDiskStorage } from '../src/modules/storage/object-storage.js';
 import { connectDatabase, disconnectDatabase } from '../src/database/connection.js';
 import type { PasswordLinkMessage, PasswordLinkNotifier } from '../src/modules/auth/password-link-notifier.js';
 import { PasswordHasher } from '../src/modules/auth/password-hasher.js';
@@ -19,7 +23,7 @@ export const PASSWORD = 'correct-horse-battery';
 export function useTestDatabase() {
   let replSet: MongoMemoryReplSet;
   beforeAll(async () => {
-    replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
+    replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' }, instanceOpts: [{ launchTimeout: 60_000 }] });
     await connectDatabase({ uri: replSet.getUri('caretrail-test'), logger: silentLogger, maxAttempts: 1 });
     await Promise.all(Object.values(mongoose.models).map((m) => m.init()));
   });
@@ -49,11 +53,13 @@ export class CapturingNotifier implements PasswordLinkNotifier {
   }
 }
 
-export function buildTestApp() {
+export function buildTestApp(overrides: Partial<AppDependencies> = {}) {
   const clock = new TestClock();
   const notifier = new CapturingNotifier();
-  const app = createApp({ env: testEnv(), logger: silentLogger, now: clock.now, passwordLinkNotifier: notifier });
-  return { app, clock, notifier };
+  // Uploaded files go to a throwaway folder, never into the repository.
+  const storage = new LocalDiskStorage(mkdtempSync(path.join(tmpdir(), 'caretrail-test-')));
+  const app = createApp({ env: testEnv(), logger: silentLogger, now: clock.now, passwordLinkNotifier: notifier, storage, ...overrides });
+  return { app, clock, notifier, storage };
 }
 
 const hasher = new PasswordHasher();

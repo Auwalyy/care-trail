@@ -90,6 +90,12 @@ const en = {
   discard: 'Discard my change',
   retry: 'Try again',
   keepMine: 'Apply my change again',
+  messages: 'Messages',
+  noMessages: 'No messages',
+  learn: 'Health education',
+  noLearning: 'No education content yet. Your programme publishes it after clinical review.',
+  audioOnline: 'An audio version is available in the web app.',
+  reviewedBy: 'Reviewed by',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -176,6 +182,12 @@ const ha: Record<MessageKey, string> = {
   discard: 'Watsar da canjina',
   retry: 'Sake gwadawa',
   keepMine: 'Sake amfani da canjina',
+  messages: 'Saƙonni',
+  noMessages: 'Babu saƙonni',
+  learn: 'Ilimin lafiya',
+  noLearning: 'Babu bayanan ilimi tukuna. Shirin ku yana wallafa su bayan likitoci sun duba.',
+  audioOnline: 'Akwai sautin wannan a manhajar yanar gizo.',
+  reviewedBy: 'Wanda ya duba',
 };
 
 const dictionaries = { en, ha } as const;

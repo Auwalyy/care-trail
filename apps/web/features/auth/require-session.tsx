@@ -43,6 +43,11 @@ export function ShellSkeleton() {
   );
 }
 
+/** Whether the signed-in user holds a permission (for showing or hiding actions; the API enforces it). */
+export function useHasPermission(permission: Permission): boolean {
+  return useSession((s) => s.user?.permissions.includes(permission) ?? false);
+}
+
 /** Renders a "no access" state instead of the page when a permission is missing. */
 export function RequirePermission({ permission, children }: { permission: Permission; children: ReactNode }) {
   const allowed = useSession((s) => s.user?.permissions.includes(permission) ?? false);

@@ -8,7 +8,9 @@ import {
   type CommunityDto,
   type ContactMethod,
   type FacilityDto,
+  type EducationContentDto,
   type FollowUpTaskDto,
+  type InboxItemDto,
   type HouseholdDto,
   type InstructionTemplateDto,
   type PatientDto,
@@ -82,6 +84,9 @@ export const listCommunities = () => rows<CommunityDto>('SELECT json FROM commun
 export const listHouseholds = (communityId: string) => rows<HouseholdDto>('SELECT json FROM households WHERE community_id = ?', communityId);
 export const approvedTemplates = () => rows<InstructionTemplateDto>("SELECT json FROM templates WHERE status = 'approved'");
 export const syncSettings = () => kvGet<SyncSettings>('sync.settings');
+export const listEducation = () => rows<EducationContentDto>('SELECT json FROM education ORDER BY category, title COLLATE NOCASE');
+export const getEducation = (id: string) => row<EducationContentDto>('SELECT json FROM education WHERE id = ?', id);
+export const listMessages = () => rows<InboxItemDto>('SELECT json FROM messages ORDER BY created_at DESC');
 
 export async function dashboardCounts() {
   const db = await getDb();
@@ -94,6 +99,7 @@ export async function dashboardCounts() {
     overdueAppointments: await n("SELECT COUNT(*) AS n FROM appointments WHERE status = 'missed' OR (status = 'scheduled' AND scheduled_for < ?)", t),
     openTasks: await n("SELECT COUNT(*) AS n FROM follow_ups WHERE status != 'resolved'"),
     unsynced: await n("SELECT COUNT(*) AS n FROM outbox WHERE status != 'synced'"),
+    unreadMessages: await n('SELECT COUNT(*) AS n FROM messages WHERE read_at IS NULL'),
     needsAttention: await n("SELECT COUNT(*) AS n FROM outbox WHERE status = 'conflict' OR (status = 'failed' AND permanent = 1)"),
   };
 }

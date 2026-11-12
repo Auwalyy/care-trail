@@ -168,6 +168,54 @@ export class ApiClient {
     return this.request<T>('DELETE', path, options);
   }
 
+  /**
+   * Sends a file as the raw request body (e.g. audio) and returns the JSON response, or fetches a
+   * file as a Blob. Uses the same auth and refresh handling as JSON requests.
+   */
+  async sendFile<T>(method: 'PUT' | 'POST', path: string, file: Blob, options: Pick<RequestOptions, 'query' | 'timeoutMs'> = {}, retried = false): Promise<T> {
+    const res = await this.raw(method, path, { body: file, contentType: file.type || 'application/octet-stream', ...options });
+    if (res.status === 401 && !retried && this.config.onUnauthorized && (await this.config.onUnauthorized())) return this.sendFile<T>(method, path, file, options, true);
+    const payload = (await res.json().catch(() => null)) as (Partial<ApiErrorBody> & T) | null;
+    if (!res.ok) {
+      throw new ApiError({
+        status: res.status,
+        code: payload?.error?.code ?? 'INTERNAL_ERROR',
+        message: payload?.error?.message ?? `Request failed (${res.status})`,
+        details: payload?.error?.details,
+      });
+    }
+    return payload as T;
+  }
+
+  async getBlob(path: string, retried = false): Promise<Blob> {
+    const res = await this.raw('GET', path, {});
+    if (res.status === 401 && !retried && this.config.onUnauthorized && (await this.config.onUnauthorized())) return this.getBlob(path, true);
+    if (!res.ok) throw new ApiError({ status: res.status, code: res.status === 404 ? 'NOT_FOUND' : 'INTERNAL_ERROR', message: `Request failed (${res.status})` });
+    return res.blob();
+  }
+
+  private async raw(method: string, path: string, o: { body?: Blob; contentType?: string; query?: RequestOptions['query']; timeoutMs?: number }): Promise<Response> {
+    const fetchImpl = this.config.fetchImpl ?? fetch;
+    const headers: Record<string, string> = {};
+    if (o.contentType) headers['Content-Type'] = o.contentType;
+    if (this.config.getAccessToken) {
+      const token = await this.config.getAccessToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), o.timeoutMs ?? 120_000);
+    try {
+      const init: RequestInit = { method, headers, signal: controller.signal };
+      if (o.body) init.body = o.body;
+      if (this.config.credentials) init.credentials = this.config.credentials;
+      return await fetchImpl(`${this.config.baseUrl}${path}${buildQuery(o.query)}`, init);
+    } catch (err) {
+      throw new ApiError({ status: 0, code: controller.signal.aborted ? 'TIMEOUT' : 'NETWORK_ERROR', message: controller.signal.aborted ? 'The request timed out' : 'Network unavailable', details: { cause: err instanceof Error ? err.message : String(err) } });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   /** Unwraps the `{ data }` envelope. */
   async getData<T>(path: string, options?: RequestOptions): Promise<T> {
     return (await this.get<ApiSuccess<T>>(path, options)).data;

@@ -52,6 +52,21 @@ export const ACTION_LABELS: Record<string, string> = {
   'followup.resolve': 'Follow-up resolved',
   'followup.escalate': 'Follow-up escalated',
   'system.missed_care_check': 'Missed-care check found new work',
+  'education.create': 'Education content created',
+  'education.update': 'Education content edited',
+  'education.submit': 'Education content sent for review',
+  'education.return': 'Education content returned to author',
+  'education.approve': 'Clinical approval recorded for education content',
+  'education.publish': 'Education content published',
+  'education.unpublish': 'Education content unpublished',
+  'education.archive': 'Education content archived',
+  'education.audio.upload': 'Education audio uploaded',
+  'education.audio.delete': 'Education audio removed',
+  'notification.send': 'Reminder sent to a patient',
+  'analytics.export': 'Report downloaded',
+  'visit.create': 'Home visit recorded',
+  'sync.pull': 'Mobile app downloaded updates',
+  'sync.push': 'Mobile app uploaded offline work',
 };
 
 export const ACTION_FILTERS: { value: string; label: string }[] = [
@@ -68,6 +83,11 @@ export const ACTION_FILTERS: { value: string; label: string }[] = [
   { value: 'referral_template.', label: 'Referral instructions' },
   { value: 'appointment.', label: 'Appointments' },
   { value: 'followup.', label: 'Follow-ups' },
+  { value: 'education.', label: 'Health education' },
+  { value: 'notification.', label: 'Reminders' },
+  { value: 'visit.', label: 'Home visits' },
+  { value: 'sync.', label: 'Mobile sync' },
+  { value: 'analytics.', label: 'Report downloads' },
   { value: 'system.', label: 'Automatic checks' },
 ];
 

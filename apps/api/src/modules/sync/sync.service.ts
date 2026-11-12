@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import type { z } from 'zod';
 import {
   LOCAL_REF_PREFIX,
+  renderNotification,
   type SyncOpResult,
   type SyncOpType,
   type SyncOperation,
@@ -30,6 +31,9 @@ import { appointmentScopeFilter, toAppointmentDtos, type AppointmentService } fr
 import type { AuditService } from '../audit/audit.service.js';
 import { ChwProfileModel } from '../chws/chw.model.js';
 import { CommunityModel, type CommunityDoc } from '../communities/community.model.js';
+import { EducationModel, type EducationDoc } from '../education/education.model.js';
+import { toEducationDtos } from '../education/education.service.js';
+import { NotificationModel, type NotificationDoc } from '../notifications/notification.model.js';
 import { toCommunityDto } from '../communities/community.repository.js';
 import { FacilityModel, type FacilityDoc } from '../facilities/facility.model.js';
 import { toFacilityDto } from '../facilities/facility.repository.js';
@@ -194,7 +198,8 @@ export class SyncService {
     const settings = await this.deps.settings.forOrganisation(scope.organisationId);
     const profile = await ChwProfileModel.findOne({ userId: auth.userId }).select('canIssueReferrals').lean();
 
-    const [patients, households, referrals, appointments, tasks, visits, facilities, communities, templates] = await Promise.all([
+    const messagesSince = new Date(Math.max(serverTime.getTime() - 30 * 86_400_000, since ? Date.parse(since) - CURSOR_OVERLAP_MS : 0));
+    const [patients, households, referrals, appointments, tasks, visits, facilities, communities, templates, education, messages] = await Promise.all([
       PatientModel.find({ _id: { $in: assignedPatientIds }, ...changed }).lean<PatientDoc[]>(),
       HouseholdModel.find({ organisationId: scope.organisationId, communityId: { $in: scope.communityIds }, deletedAt: null, ...changed }).lean<HouseholdDoc[]>(),
       ReferralModel.find(withinScope<ReferralDoc>(changed, await referralScopeFilter(scope))).lean<ReferralDoc[]>(),
@@ -204,6 +209,9 @@ export class SyncService {
       FacilityModel.find({ organisationId: scope.organisationId, deletedAt: null, ...changed }).lean<FacilityDoc[]>(),
       CommunityModel.find({ _id: { $in: scope.communityIds }, ...changed }).lean<CommunityDoc[]>(),
       InstructionTemplateModel.find({ organisationId: scope.organisationId, status: { $in: ['approved', 'retired'] }, ...changed }).lean<InstructionTemplateDoc[]>(),
+      // First sync: published only. Later: anything changed, so unpublished items are removed on the phone.
+      EducationModel.find({ organisationId: scope.organisationId, ...(since ? changed : { status: 'published' }) }).lean<EducationDoc[]>(),
+      NotificationModel.find({ 'recipient.type': 'user', 'recipient.id': auth.userId, channel: 'in_app', updatedAt: { $gt: messagesSince } }).sort({ createdAt: -1 }).limit(200).lean<NotificationDoc[]>(),
     ]);
 
     await this.recordDevice(auth, null, null);
@@ -226,6 +234,8 @@ export class SyncService {
       })),
       settings: { offlineSessionGraceDays: settings.offlineSessionGraceDays, consentTextVersion: settings.consentTextVersion, referralExpectedArrivalDays: settings.referralExpectedArrivalDays },
       canIssueReferrals: Boolean(profile?.canIssueReferrals),
+      education: await toEducationDtos(education),
+      messages: messages.map((m) => ({ id: String(m._id), templateKey: m.templateKey, text: renderNotification(m.templateKey, 'en', m.params ?? {}), params: m.params ?? {}, link: m.link ?? null, createdAt: m.createdAt.toISOString(), readAt: m.readAt?.toISOString() ?? null })),
     };
   }
 

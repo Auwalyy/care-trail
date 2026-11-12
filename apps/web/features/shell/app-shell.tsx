@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronsLeft, ChevronsRight, LogOut, Menu, MonitorSmartphone, UserCircle2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Bell, ChevronsLeft, ChevronsRight, LogOut, Menu, MonitorSmartphone, UserCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Fragment, useState, type ReactNode } from 'react';
@@ -28,6 +29,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/s
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSession } from '@/features/auth/session-store';
 import { cn } from '@/lib/utils';
+import { api } from '@/services/api';
 import { signOut } from '@/services/api';
 import { SEGMENT_LABELS, visibleNavItems, type NavItem } from './navigation';
 
@@ -120,6 +122,24 @@ function Breadcrumbs() {
         })}
       </BreadcrumbList>
     </Breadcrumb>
+  );
+}
+
+/** Unread in-app messages (new tasks, escalations). Polls every minute while the tab is open. */
+function NotificationBell() {
+  const count = useQuery({ queryKey: ['inbox-count'], queryFn: () => api.notifications.unreadCount(), refetchInterval: 60_000 });
+  const unread = count.data?.unread ?? 0;
+  return (
+    <Button asChild variant="ghost" size="icon-lg" className="relative">
+      <Link href="/notifications" aria-label={unread ? `Messages, ${unread} unread` : 'Messages'}>
+        <Bell className="size-5" aria-hidden />
+        {unread > 0 && (
+          <span className="absolute right-1 top-1 min-w-5 rounded-full bg-danger-700 px-1 text-center text-xs font-semibold leading-5 text-white" aria-hidden>
+            {unread > 99 ? '99+' : unread}
+          </span>
+        )}
+      </Link>
+    </Button>
   );
 }
 
@@ -232,6 +252,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetContent>
           </Sheet>
           <div className="min-w-0 flex-1"><Breadcrumbs /></div>
+          <NotificationBell />
           <UserMenu />
         </header>
         <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:py-8">

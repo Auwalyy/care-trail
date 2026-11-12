@@ -2,6 +2,7 @@ import type { AppointmentDto, FollowUpTaskDto } from './care.js';
 import type { CommunityDto, FacilityDto } from './directory.js';
 import type { VisitOutcome } from './enums.js';
 import type { HouseholdDto, PatientDto } from './patients.js';
+import type { EducationContentDto, InboxItemDto } from './engagement.js';
 import type { InstructionTemplateDto, ReferralDto } from './referrals.js';
 
 export const VISIT_OUTCOME_LABELS: Record<VisitOutcome, string> = {
@@ -82,6 +83,10 @@ export interface SyncSettings {
 
 /** Changes for the CHW's working set since `since` (or everything on first sync). */
 export interface SyncPullResponse {
+  /** Education items changed since the cursor (any status; the phone keeps only published ones). */
+  education: EducationContentDto[];
+  /** The CHW's in-app messages from the last 30 days changed since the cursor. */
+  messages: InboxItemDto[];
   /** Pass back as `since` on the next pull. */
   cursor: string;
   serverTime: string;

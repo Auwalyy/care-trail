@@ -10,7 +10,7 @@ describe('MongoDB connection (replica set)', () => {
   let replSet: MongoMemoryReplSet;
 
   beforeAll(async () => {
-    replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
+    replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' }, instanceOpts: [{ launchTimeout: 60_000 }] });
     await connectDatabase({ uri: replSet.getUri('caretrail-test'), logger: silentLogger, maxAttempts: 1 });
   });
 
@@ -61,7 +61,7 @@ describe('MongoDB connection (standalone)', () => {
   let server: MongoMemoryServer;
 
   beforeAll(async () => {
-    server = await MongoMemoryServer.create();
+    server = await MongoMemoryServer.create({ instance: { launchTimeout: 60_000 } });
   });
   afterAll(async () => {
     await mongoose.disconnect();

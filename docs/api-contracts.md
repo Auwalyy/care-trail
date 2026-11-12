@@ -70,7 +70,7 @@ domain in production** (e.g. `app.caretrail.example` and `api.caretrail.example`
 | GET / POST /patients/:id/consent | `consent:read` / `consent:record` | ✅ append-only records stating every purpose; withdrawing care coordination sets the patient `inactive`; withdrawing SMS/voice resets the reminder channel |
 | GET /patients/:id/history | `patient:read` | ✅ timeline (registration, updates, status, reassignment, consent); referrals, appointments and follow-ups join in Phases 5–6 |
 | GET/POST /households, GET/PATCH /households/:id | `patient:read` / `household:manage` | ✅ `HH-NNNNNN`; CHWs limited to their communities; `GET /:id` lists members filtered by the caller's patient scope |
-| POST/GET /visits | `visit:create` / `visit:read` | |
+| POST/GET /visits | `visit:create` / `visit:read` | ✅ CHW home visits: `{patientId, visitDate, outcome, followUpRequired, nextActivityDate?, notes?, clientId?}`. Visit date not in the future; `clientId` idempotent. Scope as patients. Notes are not audited. |
 | POST /referrals | `referral:create` (+ CHW `canIssueReferrals`) | ✅ Requires the patient to be in scope and active, facility-sharing consent, an active receiving facility in the organisation, and **approved** instruction templates only. Instructions are snapshotted. `expectedArrivalBy` = today + `referralExpectedArrivalDays`. Server-generated `CT-XXXX-XXXX` (retried on collision). `clientId` idempotent (repeat → 200 `alreadyIssued`). |
 | GET /referrals | `referral:read` | ✅ Scope: platform all · programme admin own org · facility staff referrals **to** their facility · CHW referrals they issued or for their current patients. Filters: `status` (comma list), `open`, `overdue`, `toFacilityId`, `patientId`, `q` (code prefix). |
 | GET /referrals/:id, /referrals/:id/history | `referral:read` | ✅ Includes a minimal patient summary (no phone, household or consent) and `overdue` (awaiting arrival past `expectedArrivalBy`); history lists append-only events with actor, role, facility, source |
@@ -85,14 +85,17 @@ domain in production** (e.g. `app.caretrail.example` and `api.caretrail.example`
 | POST /follow-ups/:id/attempts | `followup:manage` | ✅ `{method, reached, response?}`; reached → `contacted`; the response is never audited |
 | POST /follow-ups/:id/resolve, /escalate | `followup:manage` / `followup:escalate` | ✅ outcome or notes required; escalation goes to the CHW's supervisor, else the organisation's programme admins |
 | POST /follow-ups/missed-care/run | `settings:manage` | ✅ runs the missed-care check now (own org; platform admin all or `?organisationId`); returns counts |
-| CRUD /education | `education:manage`; `education:approve` for approval | |
-| GET /notifications | authenticated | own in-app notifications |
-| POST /notifications/send | `notification:send` | template-based only |
-| GET /notifications/history | `notification:read` | |
-| GET /analytics/overview, /referrals, /facilities, /communities | `analytics:read` | aggregated only; filters `from,to,facilityId,communityId,organisationId` |
-| POST /sync/push | `sync:use` | see offline-sync.md |
-| GET /sync/pull?cursor= | `sync:use` | |
-| GET /sync/status | `sync:use` | |
+| GET/POST /education, GET/PATCH /education/:id | `education:read` / `education:manage` | ✅ authors and reviewers see all statuses, others published only; Hausa title and text together or not at all; editing reviewed content returns it to draft |
+| POST /education/:id/transition | `education:manage` (submit, publish, unpublish, archive) / `education:approve` (approve with reviewer name, qualification, date; return with note) | ✅ 422 for a step not allowed from the current status |
+| PUT / DELETE / GET /education/:id/audio/:lang | `education:manage` / `education:read` | ✅ raw file body with `?version=`; MP3, M4A, AAC, OGG, WAV, WebM up to 10 MB, signature checked |
+| GET /notifications/inbox, /inbox/count, POST /inbox/:id/read, /inbox/read-all | authenticated | ✅ own in-app messages only; `?lang=ha` renders Hausa |
+| POST /notifications/send | `notification:send` | ✅ `{appointmentId}` or `{referralId}` in scope; text built from the template; one manual reminder per record per day; uses the patient's preferred channel; blocked without consent |
+| GET /notifications/history | `notification:send` | ✅ SMS/voice history for the organisation with status and reason; never phone numbers or text |
+| POST /notifications/dispatch/run | `settings:manage` | ✅ plans reminders and sends what is due now |
+| GET /analytics/report | `analytics:read` | ✅ `report` = monthly · referrals · appointments · communities · chws · followups; `from`, `to` (default last 90 days, max 2 years), `organisationId` (platform admins, required), `facilityId`, `communityId`, `format=json` or `format=csv`. Columns, rows and totals; counts only. CSV downloads are audited. |
+| POST /sync/push | `sync:use` | ✅ 1–25 ops; per-op result `applied` / `rejected` / `conflict` / `retry`; idempotent by `opId` (ledger). See offline-sync.md. |
+| GET /sync/pull?since= | `sync:use` | ✅ CHW working set changed since `since` (ISO), plus `assignedPatientIds`, settings, `canIssueReferrals` and the next cursor |
+| GET /sync/status | `sync:use` | ✅ server time and the caller's ledger counts |
 | GET /audit-logs | `audit:read` | ✅ scoped; filters `action` (prefix), `outcome`, `entityType`, `entityId`, `actorId`, `from`, `to`; actor names resolved |
 | GET /health, /health/ready | public | liveness / readiness (DB ping) |
 

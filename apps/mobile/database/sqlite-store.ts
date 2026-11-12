@@ -155,15 +155,31 @@ export class SqliteStore implements LocalStore {
   async applyPull(data: SyncPullResponse) {
     const db = await getDb();
     await db.withExclusiveTransactionAsync(async (tx) => {
-      for (const p of data.patients) await upsertPatient(tx, p);
+      // A record with a local change still waiting to be sent keeps the local version on screen.
+      // Once that change is applied the server's updatedAt moves past the cursor, so the next
+      // pull brings the merged server version.
+      const waiting = new Set((await tx.getAllAsync<{ target_id: string }>("SELECT DISTINCT target_id FROM outbox WHERE status != 'synced' AND target_id IS NOT NULL")).map((r) => r.target_id));
+      for (const p of data.patients) if (!waiting.has(p.id)) await upsertPatient(tx, p);
       for (const r of data.referrals) await upsertRow(tx, 'referrals', r as never);
       for (const a of data.appointments) await upsertRow(tx, 'appointments', a as never);
-      for (const f of data.followUps) await upsertRow(tx, 'follow_ups', f as never);
+      for (const f of data.followUps) if (!waiting.has(f.id)) await upsertRow(tx, 'follow_ups', f as never);
       for (const v of data.visits) await upsertRow(tx, 'visits', v as never);
       for (const h of data.households) await upsertRow(tx, 'households', h as never);
       for (const f of data.facilities) await upsertRow(tx, 'facilities', f as never);
       for (const c of data.communities) await upsertRow(tx, 'communities', c as never);
       for (const t of data.templates) await upsertRow(tx, 'templates', t as never);
+      // Only published content stays on the phone; unpublished or archived items are removed.
+      for (const e of data.education ?? []) {
+        if (e.status === 'published') {
+          await tx.runAsync('INSERT INTO education (id, category, title, json) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET category = excluded.category, title = excluded.title, json = excluded.json', e.id, e.category, e.title, JSON.stringify(e));
+        } else {
+          await tx.runAsync('DELETE FROM education WHERE id = ?', e.id);
+        }
+      }
+      for (const m of data.messages ?? []) {
+        await tx.runAsync('INSERT INTO messages (id, created_at, read_at, json) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET read_at = excluded.read_at, json = excluded.json', m.id, m.createdAt, m.readAt, JSON.stringify(m));
+      }
+      await tx.runAsync('DELETE FROM messages WHERE created_at < ?', new Date(Date.now() - 30 * 86_400_000).toISOString());
 
       // Data minimisation: remove patients (and their records) no longer assigned to this CHW,
       // unless they still have unsent local work.

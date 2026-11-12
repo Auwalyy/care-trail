@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ApiError } from '@caretrail/api-client';
-import { REFERRAL_STATUS_LABELS, availableReferralTransitions, type ReferralDto, type ReferralStatus, type Role } from '@caretrail/shared-types';
+import { NOTIFICATION_STATUS_LABELS, REFERRAL_STATUS_LABELS, availableReferralTransitions, type ReferralDto, type ReferralStatus, type Role } from '@caretrail/shared-types';
 import { errorMessage } from '@/components/states/states';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -39,6 +39,7 @@ export function ReferralActions({ referral, role }: { referral: ReferralDto; rol
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closed = referral.status === 'completed' || referral.status === 'cancelled';
+  const canRemind = useCan('notification:send');
 
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ['referrals'] });
@@ -83,6 +84,20 @@ export function ReferralActions({ referral, role }: { referral: ReferralDto; rol
           {ACTION_LABELS[to] ?? REFERRAL_STATUS_LABELS[to]}
         </Button>
       ))}
+      {canRemind && referral.status === 'issued' && (
+        <Button
+          variant="outline"
+          className="h-9"
+          onClick={() =>
+            api.notifications
+              .sendReminder({ referralId: referral.id })
+              .then((n) => toast.success(n.status === 'queued' ? 'Reminder queued' : `Reminder recorded: ${NOTIFICATION_STATUS_LABELS[n.status].toLowerCase()}`))
+              .catch((err: unknown) => toast.error(errorMessage(err)))
+          }
+        >
+          Send reminder
+        </Button>
+      )}
       {canPrioritise && !closed && (
         <Select
           value={referral.priority ?? ''}

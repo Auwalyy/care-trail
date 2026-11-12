@@ -12,3 +12,5 @@ export * from './patients.js';
 export * from './referrals.js';
 export * from './care.js';
 export * from './sync.js';
+export * from './engagement.js';
+export * from './analytics.js';

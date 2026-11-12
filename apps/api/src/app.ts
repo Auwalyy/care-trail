@@ -22,6 +22,7 @@ import { createAuthenticate } from './middleware/authenticate.js';
 import { scopedCrudRoutes } from './modules/access/crud-routes.js';
 import { analyticsRoutes } from './modules/analytics/analytics.routes.js';
 import { AnalyticsService } from './modules/analytics/analytics.service.js';
+import { ReportService } from './modules/analytics/report.service.js';
 import { AuditQueryService } from './modules/audit/audit.query.js';
 import { auditRoutes } from './modules/audit/audit.routes.js';
 import { ChwRepository } from './modules/chws/chw.repository.js';
@@ -47,6 +48,12 @@ import { AppointmentService } from './modules/appointments/appointment.service.j
 import { followUpRoutes } from './modules/follow-ups/follow-up.routes.js';
 import { FollowUpService } from './modules/follow-ups/follow-up.service.js';
 import { MissedCareService } from './modules/follow-ups/missed-care.service.js';
+import { educationRoutes } from './modules/education/education.routes.js';
+import { EducationService } from './modules/education/education.service.js';
+import { notificationRoutes } from './modules/notifications/notification.routes.js';
+import { NotificationService } from './modules/notifications/notification.service.js';
+import { createProviders, type ProviderSet } from './modules/notifications/providers.js';
+import { createObjectStorage, type ObjectStorage } from './modules/storage/object-storage.js';
 import { syncRoutes } from './modules/sync/sync.routes.js';
 import { SyncService } from './modules/sync/sync.service.js';
 import { visitRoutes } from './modules/visits/visit.routes.js';
@@ -72,6 +79,10 @@ import type { Logger } from './utils/logger.js';
 export interface AppDependencies {
   /** Exposed so server.ts can schedule it (tests call routes / run() directly). */
   onMissedCare?: (svc: MissedCareService) => void;
+  onNotifications?: (svc: NotificationService) => void;
+  /** Overridable for tests (defaults from env). */
+  storage?: ObjectStorage;
+  notificationProviders?: ProviderSet;
   env: Env;
   logger: Logger;
   /** Overridable for tests. */
@@ -80,7 +91,7 @@ export interface AppDependencies {
   now?: () => Date;
 }
 
-export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now, onMissedCare }: AppDependencies): Express {
+export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now, onMissedCare, onNotifications, storage, notificationProviders }: AppDependencies): Express {
   const app = express();
 
   app.disable('x-powered-by');
@@ -198,12 +209,17 @@ export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now
   const visitService = new VisitService({ audit, patients: patientRepo });
   const missedCare = new MissedCareService({ settings, audit, logger, ...clock });
   onMissedCare?.(missedCare);
+  const notificationService = new NotificationService({ providers: notificationProviders ?? createProviders(env, logger), audit, logger, ...clock });
+  onNotifications?.(notificationService);
+  const educationService = new EducationService({ audit, storage: storage ?? createObjectStorage(env) });
 
   api.use('/patients', patientRoutes({ service: patientService, authenticate }));
   api.use('/referrals', referralRoutes({ service: referralService, authenticate }));
   api.use('/appointments', appointmentRoutes({ service: appointmentService, authenticate }));
   api.use('/follow-ups', followUpRoutes({ service: followUpService, missedCare, authenticate }));
   api.use('/visits', visitRoutes({ service: visitService, authenticate }));
+  api.use('/education', educationRoutes({ service: educationService, authenticate }));
+  api.use('/notifications', notificationRoutes({ service: notificationService, authenticate }));
   api.use(
     '/sync',
     syncRoutes({
@@ -214,7 +230,7 @@ export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now
   api.use('/referral-templates', templateRoutes({ service: new InstructionTemplateService({ audit }), authenticate }));
   api.use('/settings', settingsRoutes({ service: settings, authenticate }));
   api.use('/audit-logs', auditRoutes({ service: new AuditQueryService(), authenticate }));
-  api.use('/analytics', analyticsRoutes({ service: new AnalyticsService({ settings }), authenticate }));
+  api.use('/analytics', analyticsRoutes({ service: new AnalyticsService({ settings }), reports: new ReportService({ audit, ...clock }), authenticate }));
   // Further feature modules (organisations, patients, referrals, …) are mounted here.
 
   app.use('/api/v1', api);

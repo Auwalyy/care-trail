@@ -36,6 +36,10 @@ export default function Home() {
         <Stat label={t('openTasks')} value={counts?.openTasks} tone="warn" onPress={() => router.push('/tasks')} />
       </View>
       <Button label={t('registerPatient')} onPress={() => router.push('/register')} />
+      <View className="flex-row gap-3">
+        <View className="flex-1"><Button label={counts?.unreadMessages ? `${t('messages')} (${counts.unreadMessages})` : t('messages')} variant="secondary" onPress={() => router.push('/messages')} /></View>
+        <View className="flex-1"><Button label={t('learn')} variant="secondary" onPress={() => router.push('/learn')} /></View>
+      </View>
     </Screen>
   );
 }

@@ -57,6 +57,8 @@ export const updateSettingsSchema = z.object({
   offlineSessionGraceDays: z.number().int().min(1).max(60),
   /** Omit to keep the current value; null or "" clears it. */
   consentTextVersion: z.string().trim().max(40).transform((v) => (v === "" ? null : v)).nullish(),
+  /** Omit to keep the current value. */
+  appointmentReminders: z.boolean().optional(),
   version: versionSchema,
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;

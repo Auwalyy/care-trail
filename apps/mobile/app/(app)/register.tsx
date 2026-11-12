@@ -120,7 +120,7 @@ export default function Register() {
     <Screen>
       <Title sub={`${step + 1} / ${STEPS.length} · ${STEPS[step]}`}>{t('registerPatient')}</Title>
       <View className="h-2 overflow-hidden rounded-full bg-border">
-        <View className="h-2 bg-teal-600" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+        <View className="h-2 bg-brand-600" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
       </View>
 
       <Card className="gap-4">
@@ -151,7 +151,7 @@ export default function Register() {
         )}
         {step === 3 && (
           <>
-            <Choice label="Care pathway" value={d.carePathway} onChange={(v) => update({ carePathway: v })} options={(['antenatal', 'postnatal', 'newborn', 'caregiver'] as const).map((p) => ({ value: p, label: CARE_PATHWAY_LABELS[p] }))} error={e('sex')} />
+            <Choice label="Care pathway" value={d.carePathway} onChange={(v) => update({ carePathway: v })} options={(['antenatal', 'postnatal', 'newborn', 'caregiver'] as const).map((p) => ({ value: p, label: CARE_PATHWAY_LABELS[p] }))} error={e('carePathway') ?? e('sex')} />
             {d.carePathway === 'antenatal' ? <Field label="Expected delivery date (YYYY-MM-DD)" value={d.expectedDeliveryDate} onChangeText={(v) => update({ expectedDeliveryDate: v })} error={e('pathwayDetails.expectedDeliveryDate')} /> : null}
             {d.carePathway === 'postnatal' ? <Field label="Delivery date (YYYY-MM-DD)" value={d.deliveryDate} onChangeText={(v) => update({ deliveryDate: v })} error={e('pathwayDetails.deliveryDate')} /> : null}
             {d.carePathway === 'newborn' ? <Text className="text-base text-ink-muted">Go back and enter the baby&apos;s date of birth.</Text> : null}

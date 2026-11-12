@@ -33,6 +33,13 @@ const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS outbox_status ON outbox (status, created_at);
   CREATE TABLE IF NOT EXISTS drafts (key TEXT PRIMARY KEY NOT NULL, json TEXT NOT NULL, updated_at TEXT NOT NULL);
   `,
+  // 2: published education content and in-app messages. The cursor is reset so the next pull is a
+  // full one and brings content published before this version of the app was installed.
+  `
+  CREATE TABLE IF NOT EXISTS education (id TEXT PRIMARY KEY NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, json TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY NOT NULL, created_at TEXT NOT NULL, read_at TEXT, json TEXT NOT NULL);
+  DELETE FROM kv WHERE key = 'sync.cursor';
+  `,
 ];
 
 let dbPromise: Promise<SQLiteDatabase> | null = null;

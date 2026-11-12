@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { CalendarDays, MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { APPOINTMENT_CATEGORY_LABELS, type AppointmentDto } from '@caretrail/shared-types';
+import { APPOINTMENT_CATEGORY_LABELS, NOTIFICATION_STATUS_LABELS, type AppointmentDto } from '@caretrail/shared-types';
 import type { ListAppointmentsParams } from '@caretrail/api-client';
 import { DataTable, type Column } from '@/components/data/data-table';
 import { PageHeader } from '@/components/layout/page-header';
@@ -41,6 +41,7 @@ export function AppointmentActions({ a }: { a: AppointmentDto }) {
   const qc = useQueryClient();
   const canAttend = useCan('appointment:record-attendance');
   const canManage = useCan('appointment:manage');
+  const canRemind = useCan('notification:send');
   const [dialog, setDialog] = useState<null | 'reschedule' | 'cancel'>(null);
   const open = a.status === 'scheduled' || a.status === 'missed';
   if (!open) return null;
@@ -60,6 +61,18 @@ export function AppointmentActions({ a }: { a: AppointmentDto }) {
         <DropdownMenuContent align="end">
           {canAttend && <DropdownMenuItem onSelect={() => attend('attended')}>Patient attended</DropdownMenuItem>}
           {canAttend && a.status === 'scheduled' && a.scheduledFor <= plusDaysIso(0) && <DropdownMenuItem onSelect={() => attend('missed')}>Patient did not come</DropdownMenuItem>}
+          {canRemind && a.status === 'scheduled' && a.scheduledFor >= plusDaysIso(0) && (
+            <DropdownMenuItem
+              onSelect={() =>
+                api.notifications
+                  .sendReminder({ appointmentId: a.id })
+                  .then((n) => toast.success(n.status === 'queued' ? 'Reminder queued' : `Reminder recorded: ${NOTIFICATION_STATUS_LABELS[n.status].toLowerCase()}`))
+                  .catch((err: unknown) => toast.error(errorMessage(err)))
+              }
+            >
+              Send reminder
+            </DropdownMenuItem>
+          )}
           {canManage && <DropdownMenuItem onSelect={() => setDialog('reschedule')}>Reschedule</DropdownMenuItem>}
           {canManage && <DropdownMenuItem variant="destructive" onSelect={() => setDialog('cancel')}>Cancel</DropdownMenuItem>}
         </DropdownMenuContent>

@@ -54,6 +54,11 @@ export interface ProgrammeSettingsDto {
    * CARETRAIL records which version was used; the wording itself is owned by the programme.
    */
   consentTextVersion: string | null;
+  /**
+   * Send SMS/voice appointment reminders the day before (patients with matching consent only).
+   * Off until the programme has approved the reminder wording and configured a provider.
+   */
+  appointmentReminders: boolean;
   /** False until an administrator saves settings for the first time (defaults shown). */
   configured: boolean;
   version: number;
@@ -65,6 +70,7 @@ export const DEFAULT_PROGRAMME_SETTINGS = {
   appointmentOverdueGraceDays: 1,
   offlineSessionGraceDays: 14,
   consentTextVersion: null,
+  appointmentReminders: false,
 } as const;
 
 export interface AuditLogDto {

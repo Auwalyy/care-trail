@@ -1,4 +1,4 @@
-import type { AppointmentCategory, AppointmentDto, ContactMethod, FollowUpReason, FollowUpTaskDto, MissedCareRunResult } from '@caretrail/shared-types';
+import type { AppointmentCategory, AppointmentDto, ContactMethod, DispatchRunResult, EducationCategory, EducationContentDto, EducationStatus, FollowUpReason, FollowUpTaskDto, InboxItemDto, MissedCareRunResult, NotificationChannel, NotificationDto, NotificationStatus, NotificationTemplateKey, ReportDto, ReportKey } from '@caretrail/shared-types';
 import type {
   ApiList,
   ApiSuccess,
@@ -185,6 +185,7 @@ export interface SettingsBody {
   offlineSessionGraceDays: number;
   /** Omit to keep the current value. */
   consentTextVersion?: string | null;
+  appointmentReminders?: boolean;
   version: number;
 }
 export interface ListAuditParams {
@@ -400,6 +401,79 @@ export function createCareApi(client: ApiClient) {
       escalate: (id: string, notes: string, version: number) => one(client.post<ApiSuccess<FollowUpTaskDto>>(`/follow-ups/${id}/escalate`, { notes, version })),
       runMissedCare: (organisationId?: string) =>
         one(client.post<ApiSuccess<MissedCareRunResult>>('/follow-ups/missed-care/run', undefined, { query: qs({ organisationId }) })),
+    },
+  };
+}
+
+export interface ListEducationParams {
+  page?: number;
+  pageSize?: number;
+  status?: EducationStatus;
+  category?: EducationCategory;
+  q?: string;
+  organisationId?: string;
+}
+export interface NotificationHistoryParams {
+  page?: number;
+  pageSize?: number;
+  channel?: NotificationChannel;
+  status?: NotificationStatus;
+  templateKey?: NotificationTemplateKey;
+  patientId?: string;
+  organisationId?: string;
+}
+export interface EducationInput {
+  category: EducationCategory;
+  title: string;
+  body: string;
+  titleHa: string | null;
+  bodyHa: string | null;
+}
+export type EducationTransitionBody =
+  | { action: 'submit' | 'publish' | 'unpublish' | 'archive'; version: number }
+  | { action: 'return'; note: string; version: number }
+  | { action: 'approve'; reviewerName: string; reviewerCredentials: string; approvedOn: string; version: number };
+
+export interface ReportParams {
+  report: ReportKey;
+  from?: string;
+  to?: string;
+  organisationId?: string;
+  facilityId?: string;
+  communityId?: string;
+}
+
+export function createEngagementApi(client: ApiClient) {
+  const one = async <T>(p: Promise<ApiSuccess<T>>) => (await p).data;
+  const qs = (params?: object) => params as Record<string, QueryValue> | undefined;
+  return {
+    education: {
+      list: (params?: ListEducationParams) => client.get<ApiList<EducationContentDto>>('/education', { query: qs(params) }),
+      get: (id: string) => client.getData<EducationContentDto>(`/education/${id}`),
+      create: (body: EducationInput & { organisationId?: string }) => one(client.post<ApiSuccess<EducationContentDto>>('/education', body)),
+      update: (id: string, body: Partial<EducationInput> & { version: number }) => one(client.patch<ApiSuccess<EducationContentDto>>(`/education/${id}`, body)),
+      transition: (id: string, body: EducationTransitionBody) => one(client.post<ApiSuccess<EducationContentDto>>(`/education/${id}/transition`, body)),
+      uploadAudio: (id: string, lang: Language, file: Blob, version: number) =>
+        one(client.sendFile<ApiSuccess<EducationContentDto>>('PUT', `/education/${id}/audio/${lang}`, file, { query: { version } })),
+      deleteAudio: (id: string, lang: Language, version: number) => one(client.delete<ApiSuccess<EducationContentDto>>(`/education/${id}/audio/${lang}`, { query: { version } })),
+      audio: (id: string, lang: Language) => client.getBlob(`/education/${id}/audio/${lang}`),
+    },
+    reports: {
+      run: (params: ReportParams) => client.getData<ReportDto>('/analytics/report', { query: qs(params) }),
+      /** CSV file (UTF-8 with BOM); the download is audited on the server. */
+      csv: (params: ReportParams) => {
+        const q = new URLSearchParams(Object.entries({ ...params, format: 'csv' }).filter(([, v]) => v !== undefined && v !== '') as [string, string][]);
+        return client.getBlob(`/analytics/report?${q.toString()}`);
+      },
+    },
+    notifications: {
+      inbox: (params?: { page?: number; pageSize?: number; unread?: 'true'; lang?: Language }) => client.get<ApiList<InboxItemDto>>('/notifications/inbox', { query: qs(params) }),
+      unreadCount: () => client.getData<{ unread: number }>('/notifications/inbox/count'),
+      markRead: (id: string) => client.post<void>(`/notifications/inbox/${id}/read`),
+      markAllRead: () => one(client.post<ApiSuccess<{ updated: number }>>('/notifications/inbox/read-all')),
+      history: (params?: NotificationHistoryParams) => client.get<ApiList<NotificationDto>>('/notifications/history', { query: qs(params) }),
+      sendReminder: (body: { appointmentId: string } | { referralId: string }) => one(client.post<ApiSuccess<NotificationDto>>('/notifications/send', body)),
+      runDispatch: () => one(client.post<ApiSuccess<DispatchRunResult>>('/notifications/dispatch/run')),
     },
   };
 }

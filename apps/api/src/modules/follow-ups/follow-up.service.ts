@@ -8,6 +8,7 @@ import { withinScope, type AccessScope } from '../access/access-scope.js';
 import { AppointmentModel } from '../appointments/appointment.model.js';
 import type { AuditService } from '../audit/audit.service.js';
 import { ChwProfileModel } from '../chws/chw.model.js';
+import { notifyUsers } from '../notifications/notify-users.js';
 import { PatientModel, type PatientDoc } from '../patients/patient.model.js';
 import type { PatientRepository } from '../patients/patient.repository.js';
 import { patientSummaries, unknownPatient } from '../patients/patient-summary.js';
@@ -42,7 +43,7 @@ export async function ensureTask(
   params: { organisationId: Types.ObjectId; patientId: Types.ObjectId; source: { type: 'appointment' | 'referral'; id: Types.ObjectId }; reason: FollowUpReason; dueOn: string; note?: string | null },
   session?: ClientSession,
 ): Promise<boolean> {
-  const patient = await PatientModel.findById(params.patientId).select('assignedChwId status').session(session ?? null).lean<PatientDoc>();
+  const patient = await PatientModel.findById(params.patientId).select('assignedChwId status patientCode').session(session ?? null).lean<PatientDoc>();
   if (!patient || patient.status !== 'active') return false; // no coordination for inactive records
   const openKey = openKeyFor(params.source.type, params.source.id, params.reason);
   try {
@@ -70,7 +71,10 @@ export async function ensureTask(
       },
       { upsert: true, ...(session ? { session } : {}) },
     );
-    return res.upsertedCount === 1;
+    if (res.upsertedCount !== 1) return false;
+    const taskId = String(res.upsertedId);
+    await notifyUsers({ organisationId: params.organisationId, userIds: [patient.assignedChwId], templateKey: 'followup_assigned', params: { patientCode: patient.patientCode, date: params.dueOn }, link: { type: 'follow_up', id: taskId }, dedupeKey: `task:${taskId}:assigned` }, session);
+    return true;
   } catch (err) {
     if ((err as { code?: number }).code === 11000) return false; // created concurrently
     throw err;
@@ -189,6 +193,9 @@ export class FollowUpService {
       })
     ).toObject();
     await this.deps.audit.record({ action: 'followup.create', auth, organisationId: patient.organisationId, entityType: 'follow_up', entityId: doc._id }, ctx);
+    if (String(patient.assignedChwId) !== String(auth.userId)) {
+      await notifyUsers({ organisationId: patient.organisationId, userIds: [patient.assignedChwId], templateKey: 'followup_assigned', params: { patientCode: patient.patientCode, date: input.dueOn }, link: { type: 'follow_up', id: String(doc._id) }, dedupeKey: `task:${String(doc._id)}:assigned`, createdBy: auth.userId });
+    }
     return this.dto(doc);
   }
 
@@ -267,6 +274,8 @@ export class FollowUpService {
         session,
       );
       await this.deps.audit.record({ action: 'followup.escalate', auth, organisationId: doc.organisationId, entityType: 'follow_up', entityId: doc._id, metadata: { recipients: to.length }, session }, ctx);
+      const patient = await PatientModel.findById(doc.patientId).select('patientCode').session(session).lean<PatientDoc>();
+      await notifyUsers({ organisationId: doc.organisationId, userIds: to, templateKey: 'followup_escalated', params: { patientCode: patient?.patientCode ?? '' }, link: { type: 'follow_up', id: String(doc._id) }, dedupeKey: `task:${String(doc._id)}:escalated:v${updated!.version}`, createdBy: auth.userId }, session);
     });
     return this.dto(updated!);
   }

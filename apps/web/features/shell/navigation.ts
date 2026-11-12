@@ -1,5 +1,8 @@
 import {
   ArrowRightLeft,
+  BarChart3,
+  BookOpen,
+  MessageSquare,
   CalendarDays,
   ClipboardList,
   Building2,
@@ -44,9 +47,12 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/chws', label: 'Health workers', icon: HeartHandshake, permission: 'chw:read', group: 'main' },
   { href: '/facilities', label: 'Facilities', icon: Hospital, permission: 'facility:read', hiddenFor: ['chw'], group: 'main' },
   { href: '/communities', label: 'Communities', icon: MapPinned, permission: 'community:read', hiddenFor: ['chw'], group: 'main' },
+  { href: '/reports', label: 'Reports', icon: BarChart3, permission: 'analytics:read', group: 'main' },
+  { href: '/education', label: 'Health education', icon: BookOpen, permission: 'education:read', hiddenFor: ['chw'], group: 'main' },
   { href: '/users', label: 'Users', icon: Users, permission: 'user:read', group: 'administration' },
   { href: '/organisations', label: 'Organisations', icon: Building2, permission: 'organisation:manage', group: 'administration' },
   { href: '/referral-templates', label: 'Referral instructions', icon: FileText, permission: 'referral:manage-templates', group: 'administration' },
+  { href: '/notifications/history', label: 'SMS & voice reminders', icon: MessageSquare, permission: 'notification:send', group: 'administration' },
   { href: '/settings', label: 'Programme settings', icon: Settings2, permission: 'settings:manage', group: 'administration' },
   { href: '/audit-logs', label: 'Audit log', icon: ScrollText, permission: 'audit:read', group: 'administration' },
   { href: '/profile', label: 'My profile', icon: UserCircle2, group: 'account' },
@@ -68,6 +74,10 @@ export const SEGMENT_LABELS: Record<string, string> = {
   organisations: 'Organisations',
   settings: 'Programme settings',
   'audit-logs': 'Audit log',
+  education: 'Health education',
+  reports: 'Reports',
+  notifications: 'Messages',
+  history: 'SMS & voice reminders',
   profile: 'My profile',
 };
 

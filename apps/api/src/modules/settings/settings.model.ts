@@ -16,6 +16,7 @@ export interface ProgrammeSettingsDoc {
   appointmentOverdueGraceDays: number;
   offlineSessionGraceDays: number;
   consentTextVersion?: string | null;
+  appointmentReminders?: boolean;
   updatedBy?: Types.ObjectId | null;
   version: number;
   createdAt: Date;
@@ -37,6 +38,7 @@ const settingsSchema = new Schema<ProgrammeSettingsDoc>(
     appointmentOverdueGraceDays: { type: Number, required: true, min: 0, max: 14 },
     offlineSessionGraceDays: { type: Number, required: true, min: 1, max: 60 },
     consentTextVersion: { type: String, default: null },
+    appointmentReminders: { type: Boolean, default: false },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     version: { type: Number, default: 0 },
   },

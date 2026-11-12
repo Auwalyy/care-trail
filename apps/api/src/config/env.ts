@@ -34,10 +34,33 @@ export const envSchema = z
     API_DOCS_ENABLED: booleanString.default(true),
     /** How often the missed-care check runs in this process. 0 disables it (e.g. on extra replicas). */
     MISSED_CARE_INTERVAL_MINUTES: z.coerce.number().int().min(0).max(1440).default(15),
+    /** How often queued notifications are sent and reminders planned. 0 disables it in this process. */
+    NOTIFICATION_DISPATCH_INTERVAL_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
+    /**
+     * SMS / voice delivery. `none` records messages as "not sent: no provider". `log` writes a
+     * line without phone number or text and counts as sent: development only. A real provider
+     * (e.g. a Nigerian SMS aggregator) is added as a NotificationProvider once contracted.
+     */
+    SMS_PROVIDER: z.enum(['none', 'log']).default('none'),
+    VOICE_PROVIDER: z.enum(['none', 'log']).default('none'),
+    /** Uploaded files (education audio). */
+    STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+    STORAGE_LOCAL_DIR: z.string().default('./storage'),
+    S3_BUCKET: z.string().optional(),
+    S3_REGION: z.string().optional(),
+    /** For S3-compatible services (MinIO, DigitalOcean Spaces…). */
+    S3_ENDPOINT: z.url().optional(),
     APP_VERSION: z.string().default('0.1.0'),
   })
   .superRefine((env, ctx) => {
+    if (env.STORAGE_DRIVER === 's3') {
+      if (!env.S3_BUCKET) ctx.addIssue({ code: 'custom', path: ['S3_BUCKET'], message: 'S3_BUCKET is required when STORAGE_DRIVER=s3' });
+      if (!env.S3_REGION) ctx.addIssue({ code: 'custom', path: ['S3_REGION'], message: 'S3_REGION is required when STORAGE_DRIVER=s3' });
+    }
     if (env.NODE_ENV === 'production') {
+      for (const key of ['SMS_PROVIDER', 'VOICE_PROVIDER'] as const) {
+        if (env[key] === 'log') ctx.addIssue({ code: 'custom', path: [key], message: `${key}=log only pretends to send; it is not allowed in production` });
+      }
       if (!env.WEB_APP_URL.startsWith('https://')) {
         ctx.addIssue({
           code: 'custom',

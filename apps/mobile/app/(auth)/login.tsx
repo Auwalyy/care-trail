@@ -39,7 +39,7 @@ export default function Login() {
   return (
     <Screen>
       <View className="mt-8">
-        <Text className="text-sm font-semibold uppercase tracking-wide text-teal-700">{t('tagline')}</Text>
+        <Text className="text-sm font-semibold uppercase tracking-wide text-brand-700">{t('tagline')}</Text>
         <Text className="mt-1 text-4xl font-bold text-brand-900">{t('appName')}</Text>
       </View>
       <View className="flex-row gap-2">

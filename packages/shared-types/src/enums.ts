@@ -89,6 +89,7 @@ export const NOTIFICATION_STATUSES = [
   'failed',
   'not_sent_no_provider',
   'blocked_no_consent',
+  'cancelled',
 ] as const;
 export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
 

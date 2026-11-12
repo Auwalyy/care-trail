@@ -27,6 +27,7 @@ function toDto(organisationId: Types.ObjectId, doc: ProgrammeSettingsDoc | null)
     appointmentOverdueGraceDays: doc.appointmentOverdueGraceDays,
     offlineSessionGraceDays: doc.offlineSessionGraceDays,
     consentTextVersion: doc.consentTextVersion ?? null,
+    appointmentReminders: doc.appointmentReminders ?? false,
     configured: true,
     version: doc.version,
     updatedAt: doc.updatedAt.toISOString(),

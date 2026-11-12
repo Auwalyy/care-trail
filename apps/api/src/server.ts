@@ -20,11 +20,15 @@ async function main() {
   await connectDatabase({ uri: env.MONGODB_URI, logger });
 
   let stopMissedCare: (() => void) | undefined;
+  let stopNotifications: (() => void) | undefined;
   const app = createApp({
     env,
     logger,
     onMissedCare: (svc) => {
       if (env.MISSED_CARE_INTERVAL_MINUTES > 0) stopMissedCare = svc.start(env.MISSED_CARE_INTERVAL_MINUTES);
+    },
+    onNotifications: (svc) => {
+      if (env.NOTIFICATION_DISPATCH_INTERVAL_SECONDS > 0) stopNotifications = svc.start(env.NOTIFICATION_DISPATCH_INTERVAL_SECONDS);
     },
   });
   const server: Server = app.listen(env.PORT, () => {
@@ -37,6 +41,7 @@ async function main() {
     shuttingDown = true;
     logger.info({ signal }, 'Shutting down gracefully');
     stopMissedCare?.();
+    stopNotifications?.();
     const forceExit = setTimeout(() => {
       logger.error('Forced shutdown after timeout');
       process.exit(1);

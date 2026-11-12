@@ -96,12 +96,74 @@ first. After changing a package while a dev server is running, run `npm run buil
 - `next start` occasionally failed on this Windows machine with "Could not find a production
   build" although `.next/BUILD_ID` existed. Starting it again without rebuilding worked. The
   cause was not identified, possibly a transient file lock.
+- **Metro on Windows and drive-letter case.** VS Code terminals start Node with a lowercase drive
+  letter (`c:`) while the workspace links resolve to `C:`, and Metro compares paths
+  case-sensitively ("Unable to resolve @caretrail/shared-types"). `apps/mobile/metro.config.js`
+  therefore resolves `@caretrail/*` straight to `packages/*`. Build the packages first
+  (`npm run build:packages`), and after a Metro config change start with a clean cache:
+  `npx expo start -c`.
 - npm 11 asks before running install scripts. None are needed:
   - esbuild ships its binary as an optional dependency.
   - mongodb-memory-server downloads lazily.
   - `@scarf/scarf` is telemetry.
 
 ## Phase status
+
+### Phase 10: Reports and CSV export
+
+Verified on 2026-11-12. API 138 tests (7 new), plus a 15-check end-to-end run against the compiled
+API in production mode, with a log scan for patient data (0 hits). Web typecheck, lint and
+production build clean.
+
+| Item | Status | Evidence |
+|---|---|---|
+| Six reports: monthly trend, referrals by facility, appointments by facility, communities, health-worker activity (with last sync), follow-up outcomes | ✅ | `analytics.test.ts` checks the numbers against a known data set; e2e |
+| Filters: period (default 90 days, max 2 years), community, facility; organisation for platform admins | ✅ | tests |
+| Access: programme staff all reports for their organisation; facility admins only facility reports for their own facility; CHWs none | ✅ | tests + e2e |
+| Counts only: no patient names or identifiers in any report | ✅ | tests + e2e |
+| CSV: UTF-8 BOM for Excel, formula-injection protection, audited downloads | ✅ | tests + e2e (raw bytes) |
+| Web: Reports page with filters, column explanations, totals and CSV download | ✅ build | typecheck, lint, `next build` |
+| Small-number suppression for publication | ⬜ not built | Reports are for programme staff (decision A44) |
+| Charts | ⬜ not built | Tables only for now |
+
+### Phase 9: Education content and notifications
+
+Verified on 2026-11-12. API 131 tests (8 new), plus a 20-check end-to-end run against the compiled
+API in production mode (`SMS_PROVIDER=none`), with a log scan for patient data (0 hits). Web
+typecheck, lint and production build clean; mobile typecheck and Android bundle clean.
+
+| Item | Status | Evidence |
+|---|---|---|
+| Education workflow: draft → review → approve (named clinician) → publish; edits send it back; separation of duties | ✅ | `engagement.test.ts` + e2e |
+| Audio upload/playback via storage abstraction (local disk), type/size/signature checks | ✅ | tests + e2e (byte-for-byte) |
+| S3 storage driver | ⬜ not verified | No bucket available here |
+| Reminders: manual (appointment/referral) and day-before (setting, off by default); consent checked when queued and when sent; retries with backoff; no medical details or phone numbers in history/logs | ✅ | tests with a capturing provider + e2e |
+| Real SMS / voice delivery | ⬜ not built | No provider contracted; implement `NotificationProvider` (decision A42) |
+| Push notifications | ⬜ not built | Needs device tokens and a push service |
+| In-app messages: new follow-up tasks and escalations; web bell + inbox; synced to the phone | ✅ | tests + e2e |
+| Web: health education page, messages inbox, reminder history, settings toggle, “Send reminder” on appointments/referrals | ✅ build | typecheck, lint, `next build` |
+| Mobile: messages and health education screens (offline, Hausa where provided) | ✅ code | typecheck + bundle |
+
+New API environment variables (add them to your own `.env`): `NOTIFICATION_DISPATCH_INTERVAL_SECONDS`
+(default 60, 0 disables), `SMS_PROVIDER` / `VOICE_PROVIDER` (`none` default; `log` for development
+only), `STORAGE_DRIVER` (`local` default or `s3`), `STORAGE_LOCAL_DIR` (default `./storage`,
+git-ignored), `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`.
+
+### Phases 7–8: Mobile app and offline sync
+
+Verified on 2026-11-12. Totals: 182 automated tests (API 123, shared packages 50, sync engine 9),
+mobile TypeScript check and an Android JS bundle (`expo export --platform android`).
+
+| Item | Status | Evidence |
+|---|---|---|
+| Sync engine (`packages/sync-core`): batching, dependency order, backoff with jitter, crash recovery, coalesced runs, auth handling | ✅ | 9 unit tests |
+| `/sync/push` + `/sync/pull`: idempotency ledger, `local:` references, same rules as the online API, conflicts (version, duplicate), rejections, purge after reassignment | ✅ | `sync.test.ts` drives the real engine over HTTP against the API |
+| `/visits` | ✅ | `sync.test.ts` + typecheck |
+| Mobile: sign-in, PIN unlock offline (grace period, 5 attempts), auto-lock, sign-out wipe | ✅ code | typecheck + bundle |
+| Mobile: encrypted SQLite (SQLCipher plugin), outbox written in the same transaction as the record, pull applied atomically with its cursor | ✅ code | typecheck + bundle |
+| Mobile screens: home, patients, 6-step registration with draft and duplicate warning, patient profile, visit, appointment, referral + receipt (“pending sync” without a code), follow-up task, sync screen with conflict actions, profile, Hausa/English | ✅ code | typecheck + bundle |
+| Running on a phone or emulator | ⬜ not yet verified | Needs a development build (`eas build --profile development`); SQLCipher is native and does not run in Expo Go |
+| Hausa interface wording | ⬜ draft | Needs review by native speakers (decision A38) |
 
 ### Phase 6: Appointments & missed-care recovery
 

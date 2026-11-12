@@ -79,6 +79,7 @@ const PROGRAMME_ADMIN: readonly Permission[] = [
   'followup:read',
   'followup:escalate',
   'education:read',
+  'education:manage',
   'notification:send',
   'notification:read',
   'analytics:read',
@@ -90,7 +91,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   platform_admin: [
     ...PROGRAMME_ADMIN,
     'organisation:manage',
-    'education:manage',
     'education:approve',
     'analytics:platform',
   ],

@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Info, Loader2, Settings2, Wand2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { ApiError } from '@caretrail/api-client';
@@ -15,6 +15,8 @@ import { EmptyState, ErrorState } from '@/components/states/states';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RequirePermission } from '@/features/auth/require-session';
@@ -48,6 +50,7 @@ const schema = z.object({
   appointmentOverdueGraceDays: requiredDays(0, 14),
   offlineSessionGraceDays: requiredDays(1, 60),
   consentTextVersion: z.string().trim().max(40, 'Use at most 40 characters'),
+  appointmentReminders: z.boolean(),
 });
 type FormIn = z.input<typeof schema>;
 type FormOut = z.output<typeof schema>;
@@ -65,6 +68,7 @@ function toForm(s: ProgrammeSettingsDto): FormIn {
     appointmentOverdueGraceDays: String(s.appointmentOverdueGraceDays),
     offlineSessionGraceDays: String(s.offlineSessionGraceDays),
     consentTextVersion: s.consentTextVersion ?? '',
+    appointmentReminders: s.appointmentReminders,
   };
 }
 
@@ -80,6 +84,7 @@ function SettingsForm({ settings, organisationId }: { settings: ProgrammeSetting
   const qc = useQueryClient();
   const form = useForm<FormIn, unknown, FormOut>({ resolver: zodResolver(schema), defaultValues: toForm(settings) });
   const { errors, isSubmitting, isDirty } = form.formState;
+  const reminders = useWatch({ control: form.control, name: 'appointmentReminders' });
 
   const fillProposed = () => {
     for (const [k] of PILOT_FIELDS) form.setValue(k, String(PROPOSED_PILOT_TARGETS[k]), { shouldDirty: true });
@@ -94,6 +99,7 @@ function SettingsForm({ settings, organisationId }: { settings: ProgrammeSetting
           appointmentOverdueGraceDays: v.appointmentOverdueGraceDays,
           offlineSessionGraceDays: v.offlineSessionGraceDays,
           consentTextVersion: v.consentTextVersion || null,
+          appointmentReminders: v.appointmentReminders,
           version: settings.version,
         },
         organisationId,
@@ -176,6 +182,27 @@ function SettingsForm({ settings, organisationId }: { settings: ProgrammeSetting
           <FormField id="consentTextVersion" label="Current consent wording version" error={errors.consentTextVersion?.message}>
             <Input className="sm:w-64" {...fieldAria('consentTextVersion', errors.consentTextVersion?.message)} {...form.register('consentTextVersion')} />
           </FormField>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Appointment reminders</CardTitle>
+          <CardDescription>
+            Sends an SMS or voice reminder the day before an appointment, only to patients who consented to that channel. Messages name the
+            facility and date, nothing medical. Switch this on only after your programme has approved the reminder wording (English and Hausa)
+            and an SMS or voice provider has been configured on the server.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="appointmentReminders"
+              checked={reminders}
+              onCheckedChange={(v) => form.setValue('appointmentReminders', v === true, { shouldDirty: true })}
+            />
+            <Label htmlFor="appointmentReminders">Send day-before appointment reminders</Label>
+          </div>
         </CardContent>
       </Card>
 
