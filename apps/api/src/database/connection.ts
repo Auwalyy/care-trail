@@ -51,7 +51,7 @@ export async function connectDatabase(options: ConnectOptions): Promise<typeof m
         throw err;
       }
       const delay = Math.min(initialDelayMs * 2 ** (attempt - 1), 15_000);
-      logger.warn({ target: describeMongoUri(uri), attempt, retryInMs: delay }, 'MongoDB connection failed, retrying');
+      logger.warn({ err, target: describeMongoUri(uri), attempt, retryInMs: delay }, 'MongoDB connection failed, retrying');
       await sleep(delay);
     }
   }
