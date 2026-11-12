@@ -1,0 +1,204 @@
+import * as SecureStore from 'expo-secure-store';
+import { create } from 'zustand';
+
+/**
+ * Interface labels only. Clinical content (referral instructions, consent wording, education) is
+ * never translated here — it comes from the programme with a recorded review.
+ *
+ * The Hausa strings below are a DRAFT and must be reviewed by a native Hausa speaker before the
+ * pilot (see docs/decisions.md A38).
+ */
+const en = {
+  appName: 'CARETRAIL',
+  tagline: 'No Patient Left Behind',
+  signIn: 'Sign in',
+  email: 'Email',
+  password: 'Password',
+  signingIn: 'Signing in…',
+  needOnlineFirst: 'The first sign-in needs an internet connection.',
+  setPinTitle: 'Choose a PIN',
+  setPinHelp: 'You will use this 4–6 digit PIN to open the app, even without internet.',
+  confirmPin: 'Enter the PIN again',
+  pinsDontMatch: 'The PINs do not match',
+  unlockTitle: 'Enter your PIN',
+  unlock: 'Unlock',
+  wrongPin: 'Wrong PIN. Attempts left: {n}',
+  tooManyAttempts: 'Too many wrong PINs. Please sign in again.',
+  graceExpired: 'You have been offline for too long. Connect to the internet and sign in again.',
+  home: 'Home',
+  patients: 'Patients',
+  referrals: 'Referrals',
+  tasks: 'Tasks',
+  profile: 'Profile',
+  online: 'Online',
+  offline: 'Offline',
+  lastSync: 'Last synced',
+  never: 'Never',
+  syncNow: 'Sync now',
+  syncing: 'Syncing…',
+  waitingToSync: '{n} waiting to sync',
+  allSynced: 'Everything is synced',
+  needsAttention: '{n} need your attention',
+  assignedPatients: 'My patients',
+  newRegistrations: 'Not yet synced',
+  openReferrals: 'Open referrals',
+  overdueAppointments: 'Missed appointments',
+  openTasks: 'Follow-ups to do',
+  registerPatient: 'Register patient',
+  search: 'Search by name or code',
+  noPatients: 'No patients yet',
+  pendingId: 'ID pending sync',
+  recordVisit: 'Record visit',
+  refer: 'Refer to facility',
+  bookAppointment: 'Book appointment',
+  save: 'Save',
+  next: 'Next',
+  back: 'Back',
+  cancel: 'Cancel',
+  required: 'Required',
+  syncStatus: 'Sync status',
+  signOut: 'Sign out',
+  signOutWarning: 'Signing out deletes all data on this phone. {n} records have not been synced and will be lost.',
+  language: 'Language',
+  pendingSync: 'Waiting to sync',
+  synced: 'Synced',
+  failed: 'Will retry',
+  conflict: 'Needs review',
+  rejected: 'Not accepted',
+  receiptPending: 'PENDING SYNC — not yet valid at the facility. Sync to get the referral code.',
+  referralCode: 'Referral code',
+  noTasks: 'No follow-ups to do',
+  recordAttempt: 'Record contact attempt',
+  resolve: 'Resolve',
+  reached: 'Reached the patient',
+  outcome: 'Outcome',
+  visitDate: 'Visit date',
+  visitOutcome: 'What happened',
+  notes: 'Notes (no medical details)',
+  followUpNeeded: 'Follow-up needed',
+  nextDate: 'Next activity date',
+  facility: 'Facility',
+  reason: 'Reason for referral',
+  instructions: 'Approved instructions',
+  notAuthorisedToRefer: 'You are not authorised to issue referrals.',
+  noSharingConsent: 'This patient has not agreed to share details with facilities.',
+  date: 'Date',
+  type: 'Type',
+  draftSaved: 'Draft saved',
+  possibleDuplicate: 'Someone similar is already registered',
+  registerAnyway: "It's a different person — register",
+  discard: 'Discard my change',
+  retry: 'Try again',
+  keepMine: 'Apply my change again',
+} as const;
+
+export type MessageKey = keyof typeof en;
+
+const ha: Record<MessageKey, string> = {
+  appName: 'CARETRAIL',
+  tagline: 'Kada a bar wani mara lafiya a baya',
+  signIn: 'Shiga',
+  email: 'Imel',
+  password: 'Kalmar sirri',
+  signingIn: 'Ana shiga…',
+  needOnlineFirst: 'Shiga na farko yana bukatar intanet.',
+  setPinTitle: 'Zaɓi lambar sirri (PIN)',
+  setPinHelp: 'Za ki/ka yi amfani da wannan PIN mai lamba 4–6 don buɗe manhajar, ko da babu intanet.',
+  confirmPin: 'Sake shigar da PIN',
+  pinsDontMatch: 'PIN ɗin ba su yi daidai ba',
+  unlockTitle: 'Shigar da PIN ɗinki/ɗinka',
+  unlock: 'Buɗe',
+  wrongPin: 'PIN ba daidai ba ne. Sauran gwaji: {n}',
+  tooManyAttempts: 'An yi kuskuren PIN da yawa. Da fatan a sake shiga.',
+  graceExpired: 'An daɗe ba a haɗa da intanet ba. Haɗa intanet sannan a sake shiga.',
+  home: 'Gida',
+  patients: 'Marasa lafiya',
+  referrals: 'Turawa asibiti',
+  tasks: 'Ayyuka',
+  profile: 'Bayanaina',
+  online: 'Akwai intanet',
+  offline: 'Babu intanet',
+  lastSync: 'Daidaitawa ta ƙarshe',
+  never: 'Ba a taɓa ba',
+  syncNow: 'Daidaita yanzu',
+  syncing: 'Ana daidaitawa…',
+  waitingToSync: '{n} suna jiran daidaitawa',
+  allSynced: 'An daidaita komai',
+  needsAttention: '{n} suna bukatar kulawarki/kulawarka',
+  assignedPatients: 'Marasa lafiyana',
+  newRegistrations: 'Ba a daidaita ba tukuna',
+  openReferrals: 'Turawan da ke buɗe',
+  overdueAppointments: 'Ganawar da aka rasa',
+  openTasks: 'Bibiyar da za a yi',
+  registerPatient: 'Yi wa mara lafiya rajista',
+  search: 'Nemo da suna ko lamba',
+  noPatients: 'Babu marasa lafiya tukuna',
+  pendingId: 'Lamba tana jiran daidaitawa',
+  recordVisit: 'Rubuta ziyara',
+  refer: 'Tura zuwa asibiti',
+  bookAppointment: 'Sanya ganawa',
+  save: 'Ajiye',
+  next: 'Gaba',
+  back: 'Baya',
+  cancel: 'Soke',
+  required: 'Ana bukata',
+  syncStatus: 'Matsayin daidaitawa',
+  signOut: 'Fita',
+  signOutWarning: 'Fita zai goge duk bayanan da ke wannan waya. Bayanai {n} ba a daidaita su ba kuma za su ɓace.',
+  language: 'Harshe',
+  pendingSync: 'Yana jiran daidaitawa',
+  synced: 'An daidaita',
+  failed: 'Za a sake gwadawa',
+  conflict: 'Yana bukatar dubawa',
+  rejected: 'Ba a karɓa ba',
+  receiptPending: 'YANA JIRAN DAIDAITAWA — har yanzu ba shi da inganci a asibiti. Daidaita don samun lambar turawa.',
+  referralCode: 'Lambar turawa',
+  noTasks: 'Babu bibiyar da za a yi',
+  recordAttempt: 'Rubuta ƙoƙarin tuntuɓa',
+  resolve: 'Kammala',
+  reached: 'An samu mara lafiyar',
+  outcome: 'Sakamako',
+  visitDate: 'Ranar ziyara',
+  visitOutcome: 'Abin da ya faru',
+  notes: 'Bayani (ba tare da bayanan lafiya ba)',
+  followUpNeeded: 'Ana bukatar bibiya',
+  nextDate: 'Ranar aiki na gaba',
+  facility: 'Asibiti',
+  reason: 'Dalilin turawa',
+  instructions: 'Umarnin da aka amince da su',
+  notAuthorisedToRefer: 'Ba ki/ka da izinin bayar da turawa.',
+  noSharingConsent: 'Mara lafiyar bai/ba ta amince a raba bayanai da asibiti ba.',
+  date: 'Rana',
+  type: 'Iri',
+  draftSaved: 'An ajiye daftari',
+  possibleDuplicate: 'An riga an yi wa wani mai kama da shi/ita rajista',
+  registerAnyway: 'Wani mutum ne daban — yi rajista',
+  discard: 'Watsar da canjina',
+  retry: 'Sake gwadawa',
+  keepMine: 'Sake amfani da canjina',
+};
+
+const dictionaries = { en, ha } as const;
+export type Lang = keyof typeof dictionaries;
+
+export const useLang = create<{ lang: Lang; setLang: (l: Lang) => void }>((set) => ({
+  lang: 'ha',
+  setLang: (lang) => {
+    set({ lang });
+    void SecureStore.setItemAsync('caretrail.lang', lang);
+  },
+}));
+
+export async function restoreLanguage() {
+  const saved = await SecureStore.getItemAsync('caretrail.lang');
+  if (saved === 'en' || saved === 'ha') useLang.setState({ lang: saved });
+}
+
+export function useT() {
+  const lang = useLang((s) => s.lang);
+  return (key: MessageKey, vars?: Record<string, string | number>) => {
+    let s: string = dictionaries[lang][key] ?? en[key];
+    for (const [k, v] of Object.entries(vars ?? {})) s = s.replace(`{${k}}`, String(v));
+    return s;
+  };
+}
