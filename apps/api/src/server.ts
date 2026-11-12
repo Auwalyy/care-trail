@@ -19,7 +19,14 @@ async function main() {
 
   await connectDatabase({ uri: env.MONGODB_URI, logger });
 
-  const app = createApp({ env, logger });
+  let stopMissedCare: (() => void) | undefined;
+  const app = createApp({
+    env,
+    logger,
+    onMissedCare: (svc) => {
+      if (env.MISSED_CARE_INTERVAL_MINUTES > 0) stopMissedCare = svc.start(env.MISSED_CARE_INTERVAL_MINUTES);
+    },
+  });
   const server: Server = app.listen(env.PORT, () => {
     logger.info({ port: env.PORT, env: env.NODE_ENV }, 'CARETRAIL API listening');
   });
@@ -29,6 +36,7 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info({ signal }, 'Shutting down gracefully');
+    stopMissedCare?.();
     const forceExit = setTimeout(() => {
       logger.error('Forced shutdown after timeout');
       process.exit(1);

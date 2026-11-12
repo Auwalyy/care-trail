@@ -55,6 +55,8 @@ export const updateSettingsSchema = z.object({
   referralExpectedArrivalDays: z.number().int().min(1).max(60),
   appointmentOverdueGraceDays: z.number().int().min(0).max(14),
   offlineSessionGraceDays: z.number().int().min(1).max(60),
+  /** Omit to keep the current value; null or "" clears it. */
+  consentTextVersion: z.string().trim().max(40).transform((v) => (v === "" ? null : v)).nullish(),
   version: versionSchema,
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;

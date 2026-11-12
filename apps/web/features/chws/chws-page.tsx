@@ -75,6 +75,7 @@ function ChwsContent() {
       ),
     },
     { key: 'communities', header: 'Communities', className: 'hidden md:table-cell max-w-56 truncate', cell: (c) => c.user.communityIds.map((id) => communities.names.get(id) ?? '—').join(', ') },
+    { key: 'patients', header: 'Patients', className: 'hidden md:table-cell tabular-nums', cell: (c) => c.assignedPatients },
     {
       key: 'referrals',
       header: 'Referrals',

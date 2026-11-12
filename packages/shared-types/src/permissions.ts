@@ -19,6 +19,7 @@ export const PERMISSIONS = [
   'patient:create',
   'patient:read',
   'patient:update',
+  'patient:reassign',
   'household:manage',
   'consent:record',
   'consent:read',
@@ -30,6 +31,7 @@ export const PERMISSIONS = [
   'referral:update-status',
   'referral:set-priority',
   'referral:cancel',
+  'referral:manage-templates',
   'appointment:manage',
   'appointment:read',
   'appointment:record-attendance',
@@ -52,6 +54,8 @@ export type Permission = (typeof PERMISSIONS)[number];
 
 const PROGRAMME_ADMIN: readonly Permission[] = [
   'organisation:read',
+  'patient:reassign',
+  'referral:manage-templates',
   'user:manage',
   'user:read',
   'community:manage',

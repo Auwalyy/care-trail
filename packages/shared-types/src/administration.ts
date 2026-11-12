@@ -86,6 +86,10 @@ export interface OverviewDto {
   communities: { active: number; total: number };
   chws: { active: number; pendingActivation: number; total: number };
   staff: { active: number; total: number };
+  patients: { active: number; total: number };
+  referrals: { open: number; completed: number; overdue: number; total: number };
+  appointments: { upcoming7d: number; missed: number; attended: number; total: number };
+  followUps: { open: number; overdue: number; escalated: number; resolved: number; reachedRate: number | null };
   pilot: PilotTargets | null;
   generatedAt: string;
 }

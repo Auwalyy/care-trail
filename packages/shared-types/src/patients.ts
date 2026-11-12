@@ -119,7 +119,9 @@ export interface DuplicateCandidate {
 
 export interface PatientTimelineEntry {
   at: string;
-  kind: 'registered' | 'updated' | 'status' | 'reassigned' | 'consent' | 'viewed';
+  kind: 'registered' | 'updated' | 'status' | 'reassigned' | 'consent' | 'referral';
+  /** Set for referral entries. */
+  referralId?: string;
   summary: string;
   actor: { id: string; name: string | null } | null;
 }

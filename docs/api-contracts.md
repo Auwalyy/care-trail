@@ -61,23 +61,30 @@ domain in production** (e.g. `app.caretrail.example` and `api.caretrail.example`
 | GET/POST /chws, GET/PATCH /chws/:id | `chw:read` / `chw:manage` | ✅ `:id` is the CHW's user id; POST creates account + profile atomically and returns an activation link; PATCH edits profile (communities, programme areas, `canIssueReferrals`, supervisor). Account status/links via `/users`. |
 | GET /settings, PUT /settings | `settings:manage` | ✅ per organisation (`?organisationId=` for platform admins); `configured:false` with defaults until first save; PUT with `version` (0 = first save) |
 | GET /analytics/overview | `analytics:read` | ✅ aggregate counts (facilities, communities, CHWs by status, staff) + pilot targets; no personal data |
-| POST /patients | `patient:create` | duplicate check → `409 POSSIBLE_DUPLICATE` with candidates unless `confirmNotDuplicate=true` |
-| GET /patients, /patients/:id | `patient:read` | scope-filtered; profile reads audited |
-| PATCH /patients/:id | `patient:update` | identity fields need `version` |
-| GET /patients/:id/history | `patient:read` | merged timeline: visits, referrals, appointments, tasks, consent |
-| POST /patients/:id/consent | `consent:record` | append-only |
-| CRUD /households | `household:manage` | |
+| POST /patients | `patient:create` + `consent:record` | ✅ One transaction: patient (`CT-P-NNNNNN`), optional new household, consent record, audit. `clientId` makes it idempotent (a repeat returns 200 with `alreadyRegistered: true`). A likely duplicate returns `409 POSSIBLE_DUPLICATE` with minimal `candidates` unless `confirmNotDuplicate: true`, in which case the record is flagged (`possibleDuplicateOf`). Care-coordination consent is required. CHWs are always assigned to themselves; admins must choose a CHW who serves the community. |
+| GET /patients | `patient:read` | ✅ scoped (platform all · programme admin own org · CHW own caseload · facility staff none yet); filters `q` (name / code prefix / phone), `communityId`, `assignedChwId`, `carePathway`, `status`, `possibleDuplicate=true` |
+| GET /patients/:id | `patient:read` | ✅ every read is audited (`patient.view`); `Cache-Control: no-store` on all patient responses |
+| PATCH /patients/:id | `patient:update` | ✅ `version` required; pathway rules re-checked on the merged record; changing community requires the assigned CHW to serve it |
+| POST /patients/:id/status | `patient:update` | ✅ reason required unless `active`; reactivation requires care-coordination consent; the reason stays on the record, not in the audit log |
+| POST /patients/:id/reassign | `patient:reassign` | ✅ programme staff only; the new CHW must serve the patient's community |
+| GET / POST /patients/:id/consent | `consent:read` / `consent:record` | ✅ append-only records stating every purpose; withdrawing care coordination sets the patient `inactive`; withdrawing SMS/voice resets the reminder channel |
+| GET /patients/:id/history | `patient:read` | ✅ timeline (registration, updates, status, reassignment, consent); referrals, appointments and follow-ups join in Phases 5–6 |
+| GET/POST /households, GET/PATCH /households/:id | `patient:read` / `household:manage` | ✅ `HH-NNNNNN`; CHWs limited to their communities; `GET /:id` lists members filtered by the caller's patient scope |
 | POST/GET /visits | `visit:create` / `visit:read` | |
-| POST /referrals | `referral:create` (+ CHW `canIssueReferrals`) | returns `referralCode` |
-| GET /referrals, /referrals/:id | `referral:read` | facility roles see referrals to their facility |
-| GET /referrals/code/:code | `referral:verify` | check-digit validated before lookup |
-| PATCH /referrals/:id/status | `referral:update-status` | body `{toStatus, version, note?, serviceSummary?}`; transition and role validated against `REFERRAL_TRANSITIONS` |
-| GET /referrals/:id/history | `referral:read` | |
-| POST/GET/PATCH /appointments | `appointment:manage` / `appointment:read` | |
-| POST /appointments/:id/attendance | `appointment:record-attendance` | |
-| POST/GET/PATCH /follow-ups | `followup:manage` / `followup:read` | |
-| POST /follow-ups/:id/attempts | `followup:manage` | contact attempt |
-| POST /follow-ups/:id/resolve, /escalate | `followup:manage` | |
+| POST /referrals | `referral:create` (+ CHW `canIssueReferrals`) | ✅ Requires the patient to be in scope and active, facility-sharing consent, an active receiving facility in the organisation, and **approved** instruction templates only. Instructions are snapshotted. `expectedArrivalBy` = today + `referralExpectedArrivalDays`. Server-generated `CT-XXXX-XXXX` (retried on collision). `clientId` idempotent (repeat → 200 `alreadyIssued`). |
+| GET /referrals | `referral:read` | ✅ Scope: platform all · programme admin own org · facility staff referrals **to** their facility · CHW referrals they issued or for their current patients. Filters: `status` (comma list), `open`, `overdue`, `toFacilityId`, `patientId`, `q` (code prefix). |
+| GET /referrals/:id, /referrals/:id/history | `referral:read` | ✅ Includes a minimal patient summary (no phone, household or consent) and `overdue` (awaiting arrival past `expectedArrivalBy`); history lists append-only events with actor, role, facility, source |
+| GET /referrals/code/:code | `referral:verify` | ✅ Check symbol validated before lookup (typos → 400); O/I read as 0/1; 404 unless addressed to the caller's facility; audited |
+| PATCH /referrals/:id/status | `referral:update-status` or `referral:cancel` | ✅ `{toStatus, version, note?, serviceSummary?}` through `checkReferralTransition` with the caller's role: 403 for wrong role, 422 `INVALID_TRANSITION` for an illegal step, 400 for a missing note or summary. Event and audit written in the same transaction. |
+| PATCH /referrals/:id/priority | `referral:set-priority` | ✅ facility staff only; recorded as an event |
+| GET/POST /referral-templates, GET/PATCH /referral-templates/:id, POST /:id/approve | `referral:read` / `referral:manage-templates` | ✅ Managers see all statuses; others see approved only. Approval records reviewer name, qualification and date. Editing approved wording returns it to draft. Retire with `status: retired`. |
+| GET/POST /appointments, GET/PATCH /appointments/:id | `appointment:read` / `appointment:manage` | ✅ Scope: facility staff see their facility; CHWs their patients. Facility staff can book only for patients linked to their facility (via a referral or appointment). PATCH reschedules (`{scheduledFor, version}`); dates from today up to 1 year. `clientId` idempotent. |
+| POST /appointments/:id/cancel | `appointment:manage` | ✅ reason required; resolves an open missed-appointment task |
+| POST /appointments/:id/attendance | `appointment:record-attendance` | ✅ `{outcome: attended\|missed, version}`, facility staff only. Attending resolves the open missed-appointment task; marking missed creates one. |
+| GET/POST /follow-ups, GET/PATCH /follow-ups/:id | `followup:read` / `followup:manage` | ✅ Scope: programme staff own org; CHWs their tasks (plus any escalated to them); facility staff only tasks escalated to them. Filters `open`, `overdue`, `status`, `reason`, `assignedChwId`, `patientId`. |
+| POST /follow-ups/:id/attempts | `followup:manage` | ✅ `{method, reached, response?}`; reached → `contacted`; the response is never audited |
+| POST /follow-ups/:id/resolve, /escalate | `followup:manage` / `followup:escalate` | ✅ outcome or notes required; escalation goes to the CHW's supervisor, else the organisation's programme admins |
+| POST /follow-ups/missed-care/run | `settings:manage` | ✅ runs the missed-care check now (own org; platform admin all or `?organisationId`); returns counts |
 | CRUD /education | `education:manage`; `education:approve` for approval | |
 | GET /notifications | authenticated | own in-app notifications |
 | POST /notifications/send | `notification:send` | template-based only |

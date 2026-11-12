@@ -32,6 +32,8 @@ export const envSchema = z
     LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
     REDIS_URL: z.string().optional(),
     API_DOCS_ENABLED: booleanString.default(true),
+    /** How often the missed-care check runs in this process. 0 disables it (e.g. on extra replicas). */
+    MISSED_CARE_INTERVAL_MINUTES: z.coerce.number().int().min(0).max(1440).default(15),
     APP_VERSION: z.string().default('0.1.0'),
   })
   .superRefine((env, ctx) => {

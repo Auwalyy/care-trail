@@ -33,6 +33,24 @@ import { FacilityRepository } from './modules/facilities/facility.repository.js'
 import { FacilityService } from './modules/facilities/facility.service.js';
 import { OrganisationRepository } from './modules/organisations/organisation.repository.js';
 import { OrganisationService } from './modules/organisations/organisation.service.js';
+import { HouseholdRepository } from './modules/households/household.repository.js';
+import { householdRoutes } from './modules/households/household.routes.js';
+import { HouseholdService } from './modules/households/household.service.js';
+import { PatientRepository } from './modules/patients/patient.repository.js';
+import { patientRoutes } from './modules/patients/patient.routes.js';
+import { PatientService } from './modules/patients/patient.service.js';
+import { InstructionTemplateService } from './modules/referrals/instruction-template.service.js';
+import { referralRoutes, templateRoutes } from './modules/referrals/referral.routes.js';
+import { ReferralService } from './modules/referrals/referral.service.js';
+import { appointmentRoutes } from './modules/appointments/appointment.routes.js';
+import { AppointmentService } from './modules/appointments/appointment.service.js';
+import { followUpRoutes } from './modules/follow-ups/follow-up.routes.js';
+import { FollowUpService } from './modules/follow-ups/follow-up.service.js';
+import { MissedCareService } from './modules/follow-ups/missed-care.service.js';
+import { syncRoutes } from './modules/sync/sync.routes.js';
+import { SyncService } from './modules/sync/sync.service.js';
+import { visitRoutes } from './modules/visits/visit.routes.js';
+import { VisitService } from './modules/visits/visit.service.js';
 import { settingsRoutes } from './modules/settings/settings.routes.js';
 import { SettingsService } from './modules/settings/settings.service.js';
 import { AuditService } from './modules/audit/audit.service.js';
@@ -52,6 +70,8 @@ import { AppError } from './utils/app-error.js';
 import type { Logger } from './utils/logger.js';
 
 export interface AppDependencies {
+  /** Exposed so server.ts can schedule it (tests call routes / run() directly). */
+  onMissedCare?: (svc: MissedCareService) => void;
   env: Env;
   logger: Logger;
   /** Overridable for tests. */
@@ -60,7 +80,7 @@ export interface AppDependencies {
   now?: () => Date;
 }
 
-export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now }: AppDependencies): Express {
+export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now, onMissedCare }: AppDependencies): Express {
   const app = express();
 
   app.disable('x-powered-by');
@@ -167,7 +187,31 @@ export function createApp({ env, logger, healthChecks, passwordLinkNotifier, now
     }),
   );
   api.use('/chws', chwRoutes({ service: new ChwService({ repo: new ChwRepository(), users: userService, audit }), authenticate }));
+  api.use('/households', householdRoutes({ service: new HouseholdService({ repo: new HouseholdRepository(), audit }), authenticate }));
+  const clock = now ? { now } : {};
+  const patientRepo = new PatientRepository();
   const settings = new SettingsService({ audit });
+  const patientService = new PatientService({ repo: patientRepo, audit, ...clock });
+  const referralService = new ReferralService({ audit, settings, patients: patientRepo, ...clock });
+  const appointmentService = new AppointmentService({ audit, patients: patientRepo, ...clock });
+  const followUpService = new FollowUpService({ audit, patients: patientRepo, ...clock });
+  const visitService = new VisitService({ audit, patients: patientRepo });
+  const missedCare = new MissedCareService({ settings, audit, logger, ...clock });
+  onMissedCare?.(missedCare);
+
+  api.use('/patients', patientRoutes({ service: patientService, authenticate }));
+  api.use('/referrals', referralRoutes({ service: referralService, authenticate }));
+  api.use('/appointments', appointmentRoutes({ service: appointmentService, authenticate }));
+  api.use('/follow-ups', followUpRoutes({ service: followUpService, missedCare, authenticate }));
+  api.use('/visits', visitRoutes({ service: visitService, authenticate }));
+  api.use(
+    '/sync',
+    syncRoutes({
+      service: new SyncService({ patients: patientService, referrals: referralService, appointments: appointmentService, followUps: followUpService, visits: visitService, settings, audit, logger }),
+      authenticate,
+    }),
+  );
+  api.use('/referral-templates', templateRoutes({ service: new InstructionTemplateService({ audit }), authenticate }));
   api.use('/settings', settingsRoutes({ service: settings, authenticate }));
   api.use('/audit-logs', auditRoutes({ service: new AuditQueryService(), authenticate }));
   api.use('/analytics', analyticsRoutes({ service: new AnalyticsService({ settings }), authenticate }));

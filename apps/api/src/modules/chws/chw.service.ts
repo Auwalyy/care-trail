@@ -23,7 +23,7 @@ export class ChwService {
   async get(auth: AuthContext, id: string): Promise<ChwDto> {
     const found = Types.ObjectId.isValid(id) ? await this.deps.repo.findInScope(auth.scope, id) : null;
     if (!found) throw AppError.notFound('Community health worker');
-    return toChwDto(found.user, found.profile);
+    return toChwDto(found.user, found.profile, found.assignedPatients);
   }
 
   async create(auth: AuthContext, input: CreateChwInput, ctx: RequestContext): Promise<CreatedChwResponse> {

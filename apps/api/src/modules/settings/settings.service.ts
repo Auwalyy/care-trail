@@ -26,6 +26,7 @@ function toDto(organisationId: Types.ObjectId, doc: ProgrammeSettingsDoc | null)
     referralExpectedArrivalDays: doc.referralExpectedArrivalDays,
     appointmentOverdueGraceDays: doc.appointmentOverdueGraceDays,
     offlineSessionGraceDays: doc.offlineSessionGraceDays,
+    consentTextVersion: doc.consentTextVersion ?? null,
     configured: true,
     version: doc.version,
     updatedAt: doc.updatedAt.toISOString(),
@@ -46,7 +47,9 @@ export class SettingsService {
 
   async update(auth: AuthContext, requestedOrg: string | undefined, input: UpdateSettingsInput, ctx: RequestContext): Promise<ProgrammeSettingsDto> {
     const organisationId = await resolveTargetOrganisation(auth.scope, requestedOrg);
-    const { version, ...values } = input;
+    const { version, consentTextVersion, ...rest } = input;
+    // An omitted consentTextVersion keeps the stored value (older clients don't send it).
+    const values = consentTextVersion === undefined ? rest : { ...rest, consentTextVersion };
     let saved: ProgrammeSettingsDoc;
 
     if (version === 0) {

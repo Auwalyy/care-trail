@@ -79,5 +79,8 @@ export const ROLE_REQUIREMENTS: Record<
 
 /** Where each role lands after signing in to the web app. */
 export function webLandingPath(role: Role): string {
-  return role === 'chw' ? '/profile' : '/dashboard';
+  if (role === 'chw') return '/profile';
+  // Facility staff start at their incoming referral queue.
+  if (role === 'facility_admin' || role === 'facility_worker') return '/referrals';
+  return '/dashboard';
 }

@@ -62,6 +62,7 @@ function ChwDetailContent({ id }: { id: string }) {
           <CardContent>
             <dl className="grid gap-3">
               <Row label="Account"><Badge variant="outline" className={STATUS_BADGE[chw.user.status]}>{STATUS_LABELS[chw.user.status]}</Badge></Row>
+              <Row label="Active patients">{chw.assignedPatients}</Row>
               <Row label="Communities">{chw.user.communityIds.map((c) => communities.names.get(c) ?? '—').join(', ') || '—'}</Row>
               <Row label="Programme areas">{chw.programmeAreas.join(', ') || '—'}</Row>
               <Row label="Referrals">{chw.canIssueReferrals ? 'Authorised to issue' : 'Not authorised'}</Row>

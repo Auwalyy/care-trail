@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { HeartHandshake, Hospital, MapPinned, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react';
+import { ArrowRightLeft, CalendarDays, CalendarX, CheckCircle2, ClipboardList, HeartHandshake, Hospital, MapPinned, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { ROLE_LABELS } from '@caretrail/shared-types';
 import { PageHeader } from '@/components/layout/page-header';
@@ -82,7 +82,17 @@ function ProgrammeFigures() {
           Pilot targets are not set. <Link href="/settings" className="font-medium text-brand-700 hover:underline">Set them in Programme settings</Link> to track progress.
         </p>
       )}
-      <p className="text-xs text-muted-foreground">Patient enrolment, referral and follow-up figures appear here once those modules are in use.</p>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard icon={UsersRound} label="Active patients" value={o.patients.active} target={p?.patients} href="/patients" detail={o.patients.total > o.patients.active ? `${o.patients.total - o.patients.active} not active` : undefined} />
+        <StatCard icon={ArrowRightLeft} label="Open referrals" value={o.referrals.open} href="/referrals" detail={o.referrals.overdue ? `${o.referrals.overdue} past expected arrival` : undefined} />
+        <StatCard icon={CheckCircle2} label="Completed referrals" value={o.referrals.completed} href="/referrals" detail={o.referrals.total ? `${Math.round((o.referrals.completed / o.referrals.total) * 100)}% of ${o.referrals.total} issued` : undefined} />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard icon={CalendarDays} label="Appointments next 7 days" value={o.appointments.upcoming7d} href="/appointments" />
+        <StatCard icon={CalendarX} label="Missed appointments" value={o.appointments.missed} href="/appointments" detail={o.appointments.total ? `${o.appointments.attended} attended of ${o.appointments.total}` : undefined} />
+        <StatCard icon={ClipboardList} label="Open follow-ups" value={o.followUps.open} href="/follow-ups" detail={o.followUps.overdue ? `${o.followUps.overdue} overdue` : o.followUps.escalated ? `${o.followUps.escalated} escalated` : undefined} />
+        <StatCard icon={CheckCircle2} label="Follow-ups resolved" value={o.followUps.resolved} href="/follow-ups" detail={o.followUps.reachedRate !== null ? `${o.followUps.reachedRate}% with the patient reached` : undefined} />
+      </div>
     </section>
   );
 }

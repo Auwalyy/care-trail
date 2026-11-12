@@ -7,6 +7,7 @@
     "packages/shared-types",
     "packages/validation",
     "packages/api-client",
+    "packages/sync-core",
     "apps/api",
     "apps/web",
     "apps/mobile"
@@ -15,7 +16,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build:packages": "npm run build -w @caretrail/shared-types && npm run build -w @caretrail/validation && npm run build -w @caretrail/api-client",
+    "build:packages": "npm run build -w @caretrail/shared-types && npm run build -w @caretrail/validation && npm run build -w @caretrail/api-client && npm run build -w @caretrail/sync-core",
     "build": "npm run build:packages && npm run build -w @caretrail/api && npm run build -w @caretrail/web",
     "dev:api": "npm run build:packages && npm run dev -w @caretrail/api",
     "dev:web": "npm run build:packages && npm run dev -w @caretrail/web",

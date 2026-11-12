@@ -93,12 +93,66 @@ first. After changing a package while a dev server is running, run `npm run buil
   ```
   Running `expo install` inside the workspace once produced an invalid hoisted tree. A root
   `npm install` repairs it.
+- `next start` occasionally failed on this Windows machine with "Could not find a production
+  build" although `.next/BUILD_ID` existed. Starting it again without rebuilding worked. The
+  cause was not identified, possibly a transient file lock.
 - npm 11 asks before running install scripts. None are needed:
   - esbuild ships its binary as an optional dependency.
   - mongodb-memory-server downloads lazily.
   - `@scarf/scarf` is telemetry.
 
 ## Phase status
+
+### Phase 6: Appointments & missed-care recovery
+
+Verified on 2026-11-12. Totals: 168 automated tests (API 118, shared packages 50), plus a
+14-check end-to-end run against the compiled API (production mode, scheduler every minute) and the
+production web build.
+
+| Item | Status | Evidence |
+|---|---|---|
+| Appointments: booking by CHWs (own patients) and facility staff (linked patients, own facility), reschedule, cancel with reason, attendance by facility staff only | ✅ | `care.test.ts` + e2e |
+| Missed-care check: grace periods, server clock, missed appointments, expired referrals (system event via the shared state machine), further-follow-up referrals; idempotent on repeat | ✅ | Tests run it twice; scheduler ran 5× in the live run without errors |
+| Follow-up tasks: shared state machine, contact attempts, resolve, escalate (supervisor → programme admins), auto-resolve when the underlying problem is fixed, follow the patient on reassignment | ✅ | Tests + e2e |
+| Overview: upcoming/missed appointments, open/overdue/escalated/resolved follow-ups, reached rate | ✅ | Tests + e2e |
+| No patient responses or outcomes in audit logs or API logs | ✅ | Audit-content test; log scan |
+| Web: appointments (facility day view), follow-up board with “Run missed-care check”, task detail with attempts/resolve/escalate, Appointments tab and booking on the patient profile, dashboard cards | ✅ build | `next build`, typecheck and lint clean; pages served 200 |
+| Web screens clicked through in a real browser | ⬜ not yet verified | No browser automation available here |
+
+### Phase 5: Referrals
+
+Verified on 2026-11-12. Totals: 158 automated tests (API 108, shared packages 50), plus a
+16-check end-to-end run against the compiled API (production mode) and the production web build.
+
+| Item | Status | Evidence |
+|---|---|---|
+| Issue referrals with every gate (CHW authorisation, facility-sharing consent, active patient and facility, approved templates only), server codes with a check symbol, instruction snapshots, idempotent `clientId` | ✅ | `referrals.test.ts` + e2e |
+| Closed loop through the shared state machine (role-checked, optimistic concurrency, append-only events in the same transaction); 403 / 422 / 400 error semantics | ✅ | Full transition tests over HTTP |
+| Facility verification by code (typos caught by the check symbol, only the receiving facility can find it), arrival → service → completion / further follow-up, priority by facility staff only | ✅ | Tests + e2e with a sloppily typed code |
+| Scope: facility staff see only referrals to their facility, with a minimal patient summary (no phone); CHWs see their issued referrals and their current patients' referrals | ✅ | Isolation tests + e2e |
+| Instruction templates: draft → clinical approval (reviewer, qualification, date) → approved; edits return to draft; retire | ✅ | Tests + e2e |
+| Overdue flag, patient timeline with referral events, dashboard counts (open, completed, overdue, patients) | ✅ | Tests + e2e |
+| No referral reasons, service summaries or instruction text in the audit log or API logs | ✅ | Audit-content test; production-log scan (0 hits) |
+| Web: referral list / facility queue, verify-by-code screen, detail page with actions and timeline, printable receipt (no reason), refer-from-profile dialog, Referrals tab on the patient profile, instruction templates page | ✅ build | `next build`, typecheck and lint clean; pages served 200 |
+| Web screens clicked through in a real browser | ⬜ not yet verified | No browser automation was available in this environment |
+
+### Phase 4: Patients
+
+Verified on 2026-11-11. Totals: 147 automated tests (API 97, shared packages 50), plus a
+15-check end-to-end run against the compiled API (production mode) and the production web build.
+
+| Item | Status | Evidence |
+|---|---|---|
+| Registration in one transaction (patient `CT-P-NNNNNN`, optional household `HH-NNNNNN`, consent record, audit); idempotent by `clientId` | ✅ | `patients.test.ts` + e2e retry check |
+| Shared registration rules (DOB or estimated age, pathway dates, consent required, reminder channel needs consent and phone) used by the API and the web form | ✅ | `packages/validation` tests + API tests |
+| Duplicate detection (word-order-insensitive name, birth year ±1, same community): warn, never block; overrides flagged for review | ✅ | Tests + e2e |
+| Scope: CHWs see only their caseload and communities; programme admins their organisation; facility staff none yet | ✅ | Isolation tests per role |
+| Every profile read audited; no patient data in the audit log or API logs | ✅ | Audit-content test; production-log scan in e2e (0 hits for name, phone, landmark, consent version) |
+| Updates with merged pathway re-validation, status changes with reasons, reassignment by programme staff only, optimistic concurrency | ✅ | Tests + e2e |
+| Append-only consent; withdrawal handling; consent wording version from Programme settings | ✅ | Tests + e2e |
+| Patient timeline; household members filtered by scope; CHW caseload counts | ✅ | Tests + e2e |
+| Web: patient list and filters, registration form with duplicate review, profile (Overview / Consent / History) with edit, status, reassign and consent dialogs | ✅ build | `next build`, typecheck and lint clean; pages served 200 |
+| Web screens clicked through in a real browser | ⬜ not yet verified | No browser automation was available in this environment |
 
 ### Phase 3: Core administration
 
@@ -155,5 +209,5 @@ Verified on Windows 11, Node 26.8, on 2026-11-11.
 | Docker images and compose stack | 🟡 written, not run | Docker is not installed on the dev machine. The API image's npm ci, build, prod-install and boot steps were replayed locally and work. |
 | `expo-doctor` | ⬜ | The npx-downloaded expo-doctor crashed (`Cannot find module '@expo/env'`), a tooling issue. `expo install --check` passed. |
 
-Next: **Phase 4 — Patients** (registration, households, consent, profiles, search,
-duplicate detection). See [docs/roadmap.md](docs/roadmap.md).
+Next: **Phase 6 — Appointments & missed-care recovery** (scheduling, attendance, the automatic
+missed-care job, follow-up tasks and escalation). See [docs/roadmap.md](docs/roadmap.md).

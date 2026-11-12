@@ -1,9 +1,30 @@
+import type { AppointmentCategory, AppointmentDto, ContactMethod, FollowUpReason, FollowUpTaskDto, MissedCareRunResult } from '@caretrail/shared-types';
 import type {
   ApiList,
   ApiSuccess,
   AuditLogDto,
   AuthClient,
   AuthenticatedUser,
+  CarePathway,
+  ConsentMethod,
+  ConsentPurpose,
+  ConsentRecordDto,
+  CreatedReferralResponse,
+  InstructionTemplateDto,
+  ReferralDto,
+  ReferralEventDto,
+  ReferralPriority,
+  ReferralStatus,
+  TemplateStatus,
+  ContactChannel,
+  HouseholdDto,
+  HouseholdWithMembers,
+  PatientDto,
+  PatientStatus,
+  PatientTimelineEntry,
+  PhoneOwner,
+  RegisterPatientResponse,
+  Sex,
   ChwDto,
   CommunityDto,
   CreatedChwResponse,
@@ -22,6 +43,89 @@ import type {
   UserDto,
   UserStatus,
 } from '@caretrail/shared-types';
+
+export interface ListReferralsParams {
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  /** Comma-separated statuses. */
+  status?: string;
+  open?: 'true';
+  overdue?: 'true';
+  toFacilityId?: string;
+  patientId?: string;
+  q?: string;
+  organisationId?: string;
+}
+export interface CreateReferralBody {
+  clientId?: string;
+  patientId: string;
+  toFacilityId: string;
+  reason: string;
+  instructionTemplateIds?: string[];
+}
+export interface ReferralTransitionBody {
+  toStatus: ReferralStatus;
+  note?: string | null;
+  serviceSummary?: string | null;
+  version: number;
+}
+
+export interface ListPatientsParams {
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  q?: string;
+  communityId?: string;
+  assignedChwId?: string;
+  carePathway?: CarePathway;
+  status?: PatientStatus;
+  possibleDuplicate?: 'true';
+  organisationId?: string;
+}
+export interface ConsentBody {
+  purposes: Record<ConsentPurpose, boolean>;
+  method: ConsentMethod;
+  consentTextVersion: string;
+  language: Language;
+  witnessName?: string | null;
+}
+export interface RegisterPatientBody {
+  clientId?: string;
+  fullName: string;
+  sex: Sex;
+  dateOfBirth?: string | null;
+  estimatedAge?: number | null;
+  phone?: string | null;
+  alternatePhone?: string | null;
+  phoneOwner?: PhoneOwner;
+  communityId: string;
+  household?: { mode: 'none' } | { mode: 'existing'; householdId: string } | { mode: 'new'; headName?: string | null; landmark?: string | null; phone?: string | null };
+  carePathway: CarePathway;
+  pathwayDetails?: { expectedDeliveryDate?: string | null; deliveryDate?: string | null; motherPatientId?: string | null };
+  preferredLanguage?: Language;
+  preferredChannel?: ContactChannel;
+  assignedChwId?: string | null;
+  organisationId?: string | null;
+  confirmNotDuplicate?: boolean;
+  consent: ConsentBody;
+}
+export interface UpdatePatientBody {
+  fullName?: string;
+  sex?: Sex;
+  dateOfBirth?: string | null;
+  estimatedAge?: number | null;
+  phone?: string | null;
+  alternatePhone?: string | null;
+  phoneOwner?: PhoneOwner;
+  communityId?: string;
+  householdId?: string | null;
+  carePathway?: CarePathway;
+  pathwayDetails?: { expectedDeliveryDate?: string | null; deliveryDate?: string | null; motherPatientId?: string | null };
+  preferredLanguage?: Language;
+  preferredChannel?: ContactChannel;
+  version: number;
+}
 
 export interface OrganisationBody {
   name?: string;
@@ -79,6 +183,8 @@ export interface SettingsBody {
   referralExpectedArrivalDays: number;
   appointmentOverdueGraceDays: number;
   offlineSessionGraceDays: number;
+  /** Omit to keep the current value. */
+  consentTextVersion?: string | null;
   version: number;
 }
 export interface ListAuditParams {
@@ -184,6 +290,49 @@ export function createCaretrailApi(client: ApiClient) {
       create: (body: CreateChwBody) => data(client.post<ApiSuccess<CreatedChwResponse>>('/chws', body)),
       update: (id: string, body: UpdateChwBody) => data(client.patch<ApiSuccess<ChwDto>>(`/chws/${id}`, body)),
     },
+    patients: {
+      list: (params?: ListPatientsParams) => client.get<ApiList<PatientDto>>('/patients', { query: q(params) }),
+      get: (id: string) => client.getData<PatientDto>(`/patients/${id}`),
+      register: (body: RegisterPatientBody) => data(client.post<ApiSuccess<RegisterPatientResponse>>('/patients', body)),
+      update: (id: string, body: UpdatePatientBody) => data(client.patch<ApiSuccess<PatientDto>>(`/patients/${id}`, body)),
+      setStatus: (id: string, body: { status: PatientStatus; reason?: string | null; version: number }) =>
+        data(client.post<ApiSuccess<PatientDto>>(`/patients/${id}/status`, body)),
+      reassign: (id: string, assignedChwId: string, version: number) =>
+        data(client.post<ApiSuccess<PatientDto>>(`/patients/${id}/reassign`, { assignedChwId, version })),
+      consentHistory: (id: string) => client.getData<ConsentRecordDto[]>(`/patients/${id}/consent`),
+      recordConsent: (id: string, body: ConsentBody & { version: number }) =>
+        data(client.post<ApiSuccess<PatientDto>>(`/patients/${id}/consent`, body)),
+      history: (id: string) => client.getData<PatientTimelineEntry[]>(`/patients/${id}/history`),
+    },
+    households: {
+      list: (params?: { page?: number; pageSize?: number; q?: string; communityId?: string; organisationId?: string }) =>
+        client.get<ApiList<HouseholdDto>>('/households', { query: q(params) }),
+      get: (id: string) => client.getData<HouseholdWithMembers>(`/households/${id}`),
+      create: (body: { communityId: string; headName?: string | null; landmark?: string | null; phone?: string | null; organisationId?: string | null }) =>
+        data(client.post<ApiSuccess<HouseholdDto>>('/households', body)),
+      update: (id: string, body: { headName?: string | null; landmark?: string | null; phone?: string | null; version: number }) =>
+        data(client.patch<ApiSuccess<HouseholdDto>>(`/households/${id}`, body)),
+    },
+    referrals: {
+      list: (params?: ListReferralsParams) => client.get<ApiList<ReferralDto>>('/referrals', { query: q(params) }),
+      get: (id: string) => client.getData<ReferralDto>(`/referrals/${id}`),
+      byCode: (code: string) => client.getData<ReferralDto>(`/referrals/code/${encodeURIComponent(code)}`),
+      history: (id: string) => client.getData<ReferralEventDto[]>(`/referrals/${id}/history`),
+      create: (body: CreateReferralBody) => data(client.post<ApiSuccess<CreatedReferralResponse>>('/referrals', body)),
+      transition: (id: string, body: ReferralTransitionBody) => data(client.patch<ApiSuccess<ReferralDto>>(`/referrals/${id}/status`, body)),
+      setPriority: (id: string, priority: ReferralPriority, version: number) =>
+        data(client.patch<ApiSuccess<ReferralDto>>(`/referrals/${id}/priority`, { priority, version })),
+    },
+    referralTemplates: {
+      list: (params?: { page?: number; pageSize?: number; status?: TemplateStatus; q?: string; organisationId?: string }) =>
+        client.get<ApiList<InstructionTemplateDto>>('/referral-templates', { query: q(params) }),
+      create: (body: { title: string; body: string; bodyHa?: string | null; organisationId?: string | null }) =>
+        data(client.post<ApiSuccess<InstructionTemplateDto>>('/referral-templates', body)),
+      update: (id: string, body: { title?: string; body?: string; bodyHa?: string | null; status?: 'retired'; version: number }) =>
+        data(client.patch<ApiSuccess<InstructionTemplateDto>>(`/referral-templates/${id}`, body)),
+      approve: (id: string, body: { reviewerName: string; reviewerCredentials: string; approvedOn: string; version: number }) =>
+        data(client.post<ApiSuccess<InstructionTemplateDto>>(`/referral-templates/${id}/approve`, body)),
+    },
     settings: {
       get: (organisationId?: string) => client.getData<ProgrammeSettingsDto>('/settings', { query: q({ organisationId }) }),
       save: (body: SettingsBody, organisationId?: string) =>
@@ -199,3 +348,58 @@ export function createCaretrailApi(client: ApiClient) {
 }
 
 export type CaretrailApi = ReturnType<typeof createCaretrailApi>;
+
+// ── Phase 6: appointments and follow-ups ────────────────────────────────────────
+
+export interface ListAppointmentsParams {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  from?: string;
+  to?: string;
+  facilityId?: string;
+  patientId?: string;
+  category?: AppointmentCategory;
+  sort?: 'scheduledFor' | '-scheduledFor';
+  organisationId?: string;
+}
+
+export interface ListFollowUpsParams {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  open?: 'true';
+  overdue?: 'true';
+  reason?: FollowUpReason;
+  assignedChwId?: string;
+  patientId?: string;
+  organisationId?: string;
+}
+
+/** Appointment and follow-up endpoints (kept separate so existing callers are unchanged). */
+export function createCareApi(client: ApiClient) {
+  const one = async <T>(p: Promise<ApiSuccess<T>>) => (await p).data;
+  const qs = (params?: object) => params as Record<string, QueryValue> | undefined;
+  return {
+    appointments: {
+      list: (params?: ListAppointmentsParams) => client.get<ApiList<AppointmentDto>>('/appointments', { query: qs(params) }),
+      create: (body: { clientId?: string; patientId: string; facilityId?: string | null; category: AppointmentCategory; scheduledFor: string }) =>
+        one(client.post<ApiSuccess<AppointmentDto>>('/appointments', body)),
+      reschedule: (id: string, scheduledFor: string, version: number) => one(client.patch<ApiSuccess<AppointmentDto>>(`/appointments/${id}`, { scheduledFor, version })),
+      cancel: (id: string, reason: string, version: number) => one(client.post<ApiSuccess<AppointmentDto>>(`/appointments/${id}/cancel`, { reason, version })),
+      attendance: (id: string, outcome: 'attended' | 'missed', version: number) =>
+        one(client.post<ApiSuccess<AppointmentDto>>(`/appointments/${id}/attendance`, { outcome, version })),
+    },
+    followUps: {
+      list: (params?: ListFollowUpsParams) => client.get<ApiList<FollowUpTaskDto>>('/follow-ups', { query: qs(params) }),
+      get: (id: string) => client.getData<FollowUpTaskDto>(`/follow-ups/${id}`),
+      create: (body: { clientId?: string; patientId: string; dueOn: string; note: string }) => one(client.post<ApiSuccess<FollowUpTaskDto>>('/follow-ups', body)),
+      attempt: (id: string, body: { method: ContactMethod; reached: boolean; response?: string | null; version: number }) =>
+        one(client.post<ApiSuccess<FollowUpTaskDto>>(`/follow-ups/${id}/attempts`, body)),
+      resolve: (id: string, body: { outcome: string; nextAction?: string | null; version: number }) => one(client.post<ApiSuccess<FollowUpTaskDto>>(`/follow-ups/${id}/resolve`, body)),
+      escalate: (id: string, notes: string, version: number) => one(client.post<ApiSuccess<FollowUpTaskDto>>(`/follow-ups/${id}/escalate`, { notes, version })),
+      runMissedCare: (organisationId?: string) =>
+        one(client.post<ApiSuccess<MissedCareRunResult>>('/follow-ups/missed-care/run', undefined, { query: qs({ organisationId }) })),
+    },
+  };
+}

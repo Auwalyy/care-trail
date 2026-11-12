@@ -6,16 +6,18 @@ import type { AccessScope } from '../access/access-scope.js';
 import { toUserDto } from '../users/user.mapper.js';
 import { UserModel, type UserDoc } from '../users/user.model.js';
 import { userScopeFilter } from '../users/user.repository.js';
+import { PatientModel } from '../patients/patient.model.js';
 import { ChwProfileModel, type ChwProfileDoc } from './chw.model.js';
 import { withinScope } from '../access/access-scope.js';
 
-export function toChwDto(user: UserDoc, profile: ChwProfileDoc): ChwDto {
+export function toChwDto(user: UserDoc, profile: ChwProfileDoc, assignedPatients = 0): ChwDto {
   return {
     id: String(user._id),
     user: toUserDto(user),
     programmeAreas: profile.programmeAreas ?? [],
     canIssueReferrals: profile.canIssueReferrals,
     supervisorUserId: profile.supervisorUserId ? String(profile.supervisorUserId) : null,
+    assignedPatients,
     device: {
       lastSyncAt: profile.device?.lastSyncAt ? profile.device.lastSyncAt.toISOString() : null,
       appVersion: profile.device?.appVersion ?? null,
@@ -46,15 +48,16 @@ export class ChwRepository {
         .lean<UserDoc[]>(),
       UserModel.countDocuments(filter),
     ]);
-    const profiles = await this.profilesFor(users);
-    return { items: users.map((u) => toChwDto(u, profiles.get(String(u._id))!)), total };
+    const [profiles, counts] = await Promise.all([this.profilesFor(users), activePatientCounts(users.map((u) => u._id))]);
+    return { items: users.map((u) => toChwDto(u, profiles.get(String(u._id))!, counts.get(String(u._id)) ?? 0)), total };
   }
 
-  async findInScope(scope: AccessScope, userId: string): Promise<{ user: UserDoc; profile: ChwProfileDoc } | null> {
+  async findInScope(scope: AccessScope, userId: string): Promise<{ user: UserDoc; profile: ChwProfileDoc; assignedPatients: number } | null> {
     const user = await UserModel.findOne(withinScope<UserDoc>({ _id: userId, role: 'chw' }, userScopeFilter(scope))).lean<UserDoc>();
     if (!user) return null;
     const profile = (await this.profilesFor([user])).get(String(user._id))!;
-    return { user, profile };
+    const assignedPatients = (await activePatientCounts([user._id])).get(String(user._id)) ?? 0;
+    return { user, profile, assignedPatients };
   }
 
   /** Loads profiles, creating default ones for CHW accounts made before profiles existed. */
@@ -73,4 +76,13 @@ export class ChwRepository {
     }
     return map;
   }
+}
+
+/** Active patients per CHW (counts only). */
+async function activePatientCounts(chwIds: Types.ObjectId[]): Promise<Map<string, number>> {
+  const rows = await PatientModel.aggregate<{ _id: Types.ObjectId; n: number }>([
+    { $match: { assignedChwId: { $in: chwIds }, status: 'active', deletedAt: null } },
+    { $group: { _id: '$assignedChwId', n: { $sum: 1 } } },
+  ]);
+  return new Map(rows.map((r) => [String(r._id), r.n]));
 }

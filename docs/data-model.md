@@ -81,35 +81,36 @@ startDate}, referralExpectedArrivalDays, appointmentOverdueGraceDays, offlineSes
 updatedBy, version`. Absent until first saved; the API then reports defaults with
 `configured: false`.
 
-### households (SD)
-`organisationId, communityId, householdCode (human, unique per org), headName?, address/landmark,
-phone?, clientId?`.
+### households (SD) ✅ Phase 4
+`organisationId, communityId, householdCode (HH-NNNNNN, unique per org), clientId?, headName?,
+landmark? (directions, no GPS), phone?, createdBy, version`. Indexes: `{organisationId,
+householdCode}` unique; `{organisationId, clientId}` unique partial; `{organisationId, communityId}`.
 
-### patients (SD)
+### patients (SD) ✅ Phase 4
 | Field | Notes |
 |---|---|
-| patientCode | `CT-P-000123` human ID, unique per org, server-generated |
-| clientId | device UUID when created offline |
+| patientCode | `CT-P-000123`, unique per org, from `counters` |
+| clientId | device UUID; unique partial index `{organisationId, clientId}` → idempotent registration |
 | organisationId, communityId, householdId? | |
-| assignedChwId | ObjectId (user) |
-| fullName, dateOfBirth? / estimatedAge? | DOB optional; age estimate allowed |
-| sex | needed for newborn records |
-| phone?, alternatePhone?, phoneOwner (`self`/`household`/`none`) | |
-| carePathway | `antenatal`, `postnatal`, `newborn`, `caregiver` |
-| pathwayDetails | `{ expectedDeliveryDate?, deliveryDate?, motherPatientId? }` — dates only, no clinical findings |
-| status | `active`, `transferred`, `completed`, `inactive`, `deceased` |
-| consentStatus | denormalised summary of latest consent |
-| preferredLanguage, preferredChannel (`sms`/`voice`/`none`) | |
-Indexes: `{organisationId, patientCode}` unique; `{organisationId, clientId}` unique sparse;
-`{organisationId, assignedChwId, status}`; `{organisationId, communityId}`; text-ish search via
-`{organisationId, nameNormalized}` + phone; duplicate-detection key
-`{organisationId, nameNormalized, dateOfBirth|estimatedBirthYear, communityId}` (non-unique;
-duplicates are flagged for review, not rejected).
+| assignedChwId | the responsible CHW (user); drives CHW scope |
+| fullName, nameKey | `nameKey` = shared `nameKey()` (case, accent, punctuation and word-order insensitive) |
+| sex, dateOfBirth (YYYY-MM-DD) **or** estimatedBirthYear, birthYear | exactly one of DOB/estimate; `birthYear` is derived and indexed |
+| phone?, alternatePhone?, phoneOwner (`self`/`household`/`none`) | E.164 |
+| carePathway, pathwayDetails `{expectedDeliveryDate, deliveryDate, motherPatientId}` | coordination dates only; only the fields relevant to the pathway are kept |
+| status, statusReason | the reason is free text on the record, never copied to the audit log |
+| preferredLanguage, preferredChannel (`sms`/`voice`/`none`) | a channel requires matching consent and a phone |
+| consent | summary of the latest consent record, per purpose `{granted, recordedAt}` |
+| possibleDuplicateOf[] | set when registered despite a duplicate warning, for review |
+Indexes: `{organisationId, patientCode}` unique; `{organisationId, clientId}` unique partial;
+`{organisationId, assignedChwId, status}`; `{organisationId, communityId, status}`;
+`{organisationId, nameKey, birthYear}` (duplicate detection); `{organisationId, phone}`;
+`{householdId}`.
 
-### consent_records (append-only)
-`patientId, organisationId, purposes[] (care_coordination, sms, voice, facility_sharing),
-granted: bool, method (verbal|thumbprint|signature), consentTextVersion, language,
-recordedBy (chw), witnessName?, recordedAt, clientId?, supersedes?`.
+### consent_records (append-only) ✅ Phase 4
+`organisationId, patientId, purposes {care_coordination, sms, voice, facility_sharing: bool},
+method (verbal|thumbprint|signature), consentTextVersion, language, witnessName?, recordedBy,
+recordedAt, clientId?`. Every record states every purpose. Updates and deletes are blocked at
+the model level.
 
 ### visits
 `patientId, chwId, organisationId, visitDate, outcome (enum: met, not_home, refused, moved,
@@ -125,19 +126,26 @@ version`.
 | issuedBy | user id; `issuedByRole` |
 | origin | `{ type: 'community' \| 'facility', communityId?, facilityId? }` |
 | toFacilityId | |
-| referralDate, expectedArrivalBy | |
-| reason | free text by authorised worker |
-| instructionTemplateIds[] | approved instruction templates (configured) |
-| priority? | `routine`/`urgent` — only settable by roles with `referral:set-priority` |
-| status | see state machine |
-| arrival `{at, confirmedBy}`, service `{at, recordedBy, summary}`, completion `{at, by, outcome, notes}` | |
+| issuedAt, expectedArrivalBy (YYYY-MM-DD) | expected date from programme settings |
+| reason | free text by an authorised worker; shown to the facility, **not** printed on the receipt, never in audit logs |
+| instructions[] | snapshot `{templateId, title, body, bodyHa, templateVersion}` of approved templates at issue time |
+| priority | `null` / `routine` / `urgent`, settable only with `referral:set-priority` (facility staff) |
+| status | see the state machine in `packages/shared-types/src/referral.ts` |
+| arrival `{at, by}`, service `{at, by, summary}`, completion `{at, by}`, followUpNote, cancellation `{at, by, reason}` | |
 | version | optimistic concurrency |
-Indexes: `{referralCode}` unique; `{organisationId, clientId}` unique sparse;
-`{toFacilityId, status, expectedArrivalBy}`; `{patientId, createdAt}`; `{status, expectedArrivalBy}`.
+Indexes: `{referralCode}` unique; `{organisationId, clientId}` unique partial;
+`{toFacilityId, status, expectedArrivalBy}`; `{organisationId, status, issuedAt}`;
+`{patientId, issuedAt}`; `{issuedBy, issuedAt}`. ✅ Phase 5
 
-### referral_events (append-only)
-`referralId, organisationId, fromStatus, toStatus, actorId, actorRole, facilityId?, at, note?,
-source ('web'|'mobile'|'system')`. Index `{referralId, at}`.
+### referral_events (append-only) ✅ Phase 5
+`organisationId, referralId, patientId, kind (status|priority), fromStatus, toStatus, priority,
+actorId, actorRole, facilityId, at, note, source (web|mobile|system)`. Indexes `{referralId, at}`,
+`{patientId, at}`. Updates and deletes are blocked at the model level. Feeds the referral and
+patient timelines.
+
+### referral_instruction_templates ✅ Phase 5
+`organisationId, title, body, bodyHa, status (draft|approved|retired), approval {reviewerName,
+reviewerCredentials, approvedOn, recordedBy}, createdBy, updatedBy, version`. Starts empty.
 
 ### appointments
 `patientId, organisationId, facilityId, category (antenatal, postnatal, immunisation, preventive,

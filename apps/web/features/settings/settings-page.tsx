@@ -47,6 +47,7 @@ const schema = z.object({
   referralExpectedArrivalDays: requiredDays(1, 60),
   appointmentOverdueGraceDays: requiredDays(0, 14),
   offlineSessionGraceDays: requiredDays(1, 60),
+  consentTextVersion: z.string().trim().max(40, 'Use at most 40 characters'),
 });
 type FormIn = z.input<typeof schema>;
 type FormOut = z.output<typeof schema>;
@@ -63,6 +64,7 @@ function toForm(s: ProgrammeSettingsDto): FormIn {
     referralExpectedArrivalDays: String(s.referralExpectedArrivalDays),
     appointmentOverdueGraceDays: String(s.appointmentOverdueGraceDays),
     offlineSessionGraceDays: String(s.offlineSessionGraceDays),
+    consentTextVersion: s.consentTextVersion ?? '',
   };
 }
 
@@ -91,6 +93,7 @@ function SettingsForm({ settings, organisationId }: { settings: ProgrammeSetting
           referralExpectedArrivalDays: v.referralExpectedArrivalDays,
           appointmentOverdueGraceDays: v.appointmentOverdueGraceDays,
           offlineSessionGraceDays: v.offlineSessionGraceDays,
+          consentTextVersion: v.consentTextVersion || null,
           version: settings.version,
         },
         organisationId,
@@ -157,6 +160,21 @@ function SettingsForm({ settings, organisationId }: { settings: ProgrammeSetting
           </FormField>
           <FormField id="offlineSessionGraceDays" label="Offline access limit (days)" error={errors.offlineSessionGraceDays?.message} hint="How long the CHW app can be used without signing in online.">
             <Input inputMode="numeric" {...fieldAria('offlineSessionGraceDays', errors.offlineSessionGraceDays?.message, true)} {...form.register('offlineSessionGraceDays')} />
+          </FormField>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Consent wording</CardTitle>
+          <CardDescription>
+            The approved English and Hausa consent wording is owned by your programme and clinical leads. Enter its version reference here,
+            for example “KN-2026-v1”. It is recorded with every consent so you can show which wording each person heard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormField id="consentTextVersion" label="Current consent wording version" error={errors.consentTextVersion?.message}>
+            <Input className="sm:w-64" {...fieldAria('consentTextVersion', errors.consentTextVersion?.message)} {...form.register('consentTextVersion')} />
           </FormField>
         </CardContent>
       </Card>

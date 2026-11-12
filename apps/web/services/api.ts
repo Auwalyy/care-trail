@@ -1,4 +1,4 @@
-import { ApiClient, ApiError, createCaretrailApi } from '@caretrail/api-client';
+import { ApiClient, ApiError, createCareApi, createCaretrailApi } from '@caretrail/api-client';
 import { useSession } from '@/features/auth/session-store';
 import { publicEnv } from '@/lib/env';
 
@@ -13,7 +13,7 @@ export const apiClient = new ApiClient({
   onUnauthorized: () => refreshSession(),
 });
 
-export const api = createCaretrailApi(apiClient);
+export const api = { ...createCaretrailApi(apiClient), ...createCareApi(apiClient) };
 
 const AUTH_CHANNEL = 'caretrail-auth';
 let inflight: Promise<boolean> | null = null;
