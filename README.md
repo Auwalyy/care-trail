@@ -46,6 +46,7 @@ docker compose up -d mongo redis             # MongoDB replica set + Redis
 
 npm run create-admin -w @caretrail/api   # first platform administrator (prompts; no default password)
 npm run seed:dev -w @caretrail/api       # optional: DEMO organisation/facilities/communities (dev only)
+npm run seed:dev -w @caretrail/api -- --with-users   # also demo sign-ins for every role (dev only)
 
 npm run dev:api      # http://localhost:4000  (Swagger UI: /api/docs)
 npm run dev:web      # http://localhost:3000
