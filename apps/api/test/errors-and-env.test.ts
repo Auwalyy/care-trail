@@ -70,6 +70,24 @@ describe('loadEnv', () => {
     ).not.toThrow();
   });
 
+  it('tolerates spaces, quotes and trailing slashes pasted into URL settings', () => {
+    const env = loadEnv({
+      ...base,
+      NODE_ENV: 'production',
+      WEB_APP_URL: ' "https://care-trail.example/" ',
+      CORS_ORIGINS: 'https://care-trail.example/ , https://other.example',
+    });
+    expect(env.WEB_APP_URL).toBe('https://care-trail.example');
+    // Browsers send Origin without a trailing slash; a stored slash would never match.
+    expect(env.CORS_ORIGINS).toEqual(['https://care-trail.example', 'https://other.example']);
+    try {
+      loadEnv({ ...base, NODE_ENV: 'production', CORS_ORIGINS: 'https://a.example', WEB_APP_URL: 'http://care-trail.example' });
+      expect.unreachable();
+    } catch (err) {
+      expect((err as Error).message).toContain('got "http://care-trail.example"');
+    }
+  });
+
   it('never includes secret values in error messages', () => {
     try {
       loadEnv({ ...base, JWT_ACCESS_SECRET: 'short-secret-value' });

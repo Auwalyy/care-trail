@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+/** Hosting dashboards make it easy to paste a stray space, quotes or a trailing slash. */
+const cleanUrl = (v: string) => v.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+
 const booleanString = z
   .enum(['true', 'false', '1', '0'])
   .transform((v) => v === 'true' || v === '1');
@@ -17,7 +20,7 @@ export const envSchema = z
       .transform((v) =>
         v
           .split(',')
-          .map((s) => s.trim())
+          .map(cleanUrl)
           .filter(Boolean),
       ),
     TRUST_PROXY: z.coerce.number().int().min(0).default(0),
@@ -27,7 +30,7 @@ export const envSchema = z
     JWT_ISSUER: z.string().default('caretrail-api'),
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
     /** Public URL of the web app — used to build activation and password-reset links. */
-    WEB_APP_URL: z.url().default('http://localhost:3000'),
+    WEB_APP_URL: z.string().default('http://localhost:3000').transform(cleanUrl).pipe(z.url()),
     LOGIN_MAX_FAILED_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
     LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
     REDIS_URL: z.string().optional(),
@@ -65,7 +68,7 @@ export const envSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['WEB_APP_URL'],
-          message: 'WEB_APP_URL must use https in production (reset links carry secrets)',
+          message: `WEB_APP_URL must start with https:// in production (reset links carry secrets); got "${env.WEB_APP_URL}"`,
         });
       }
       if (env.CORS_ORIGINS.includes('*')) {
